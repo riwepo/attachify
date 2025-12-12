@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ChangeListManager">
+    <list default="true" id="54ebfd76-594a-480f-9935-0981bcfe09d0" name="Changes" comment="" />
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="DepsProjectDetails">
+    <option name="cachedModuleDetails">
+      <map>
+        <entry key="C:\Users\richa\source\repos\attachify\deps.edn">
+          <value>
+            <ModuleDetails>
+              <option name="details" value="{:basis {:classpath {&quot;test&quot; {:path-key :extra-paths}, &quot;src&quot; {:path-key :paths}, &quot;C:\\Users\\richa\\.m2\\repository\\org\\clojure\\clojure\\1.12.1\\clojure-1.12.1.jar&quot; {:lib-name org.clojure/clojure}, &quot;C:\\Users\\richa\\.m2\\repository\\org\\clojure\\core.specs.alpha\\0.4.74\\core.specs.alpha-0.4.74.jar&quot; {:lib-name org.clojure/core.specs.alpha}, &quot;C:\\Users\\richa\\.m2\\repository\\org\\clojure\\spec.alpha\\0.5.238\\spec.alpha-0.5.238.jar&quot; {:lib-name org.clojure/spec.alpha}}, :basis-config {:project &quot;C:\\Users\\richa\\AppData\\Local\\Temp\\deps8edn&quot;, :user &quot;C:\\Users\\richa\\AppData\\Local\\Temp\\deps2edn&quot;, :extra nil, :args nil, :aliases [:test]}, :all-aliases #{:test :deps}, :mvn/repos {&quot;central&quot; {:url &quot;https://repo1.maven.org/maven2/&quot;}, &quot;clojars&quot; {:url &quot;https://repo.clojars.org/&quot;}}, :argmap {:extra-paths [&quot;test&quot;]}, :paths [&quot;src&quot;], :classpath-roots [&quot;test&quot; &quot;src&quot; &quot;C:\\Users\\richa\\.m2\\repository\\org\\clojure\\clojure\\1.12.1\\clojure-1.12.1.jar&quot; &quot;C:\\Users\\richa\\.m2\\repository\\org\\clojure\\core.specs.alpha\\0.4.74\\core.specs.alpha-0.4.74.jar&quot; &quot;C:\\Users\\richa\\.m2\\repository\\org\\clojure\\spec.alpha\\0.5.238\\spec.alpha-0.5.238.jar&quot;], :config-paths [&quot;C:\\Users\\richa\\.deps.clj\\1.12.1.1550\\ClojureTools\\deps.edn&quot; &quot;C:\\Users\\richa\\.clojure\\deps.edn&quot; &quot;C:\\Users\\richa\\source\\repos\\attachify\\deps.edn&quot;], :alias-scopes {:system #{:test :deps}, :user #{}, :project #{}}, :git-deps #{}, :alias-types {:deps :tool}, :libs {org.clojure/clojure {:mvn/version &quot;1.12.1&quot;, :deps/manifest :mvn, :parents #{[]}, :paths [&quot;C:\\Users\\richa\\.m2\\repository\\org\\clojure\\clojure\\1.12.1\\clojure-1.12.1.jar&quot;]}, org.clojure/spec.alpha {:mvn/version &quot;0.5.238&quot;, :deps/manifest :mvn, :dependents [org.clojure/clojure], :parents #{[org.clojure/clojure]}, :paths [&quot;C:\\Users\\richa\\.m2\\repository\\org\\clojure\\spec.alpha\\0.5.238\\spec.alpha-0.5.238.jar&quot;]}, org.clojure/core.specs.alpha {:mvn/version &quot;0.4.74&quot;, :deps/manifest :mvn, :dependents [org.clojure/clojure], :parents #{[org.clojure/clojure]}, :paths [&quot;C:\\Users\\richa\\.m2\\repository\\org\\clojure\\core.specs.alpha\\0.4.74\\core.specs.alpha-0.4.74.jar&quot;]}}, :aliases {:deps {:replace-paths [], :replace-deps {org.clojure/tools.deps.cli {:mvn/version &quot;0.11.93&quot;}}, :ns-default clojure.tools.deps.cli.api, :ns-aliases {help clojure.tools.deps.cli.help}}, :test {:extra-paths [&quot;test&quot;]}}, :deps {org.clojure/clojure {:mvn/version &quot;1.12.1&quot;}}}}" />
+              <option name="hash" value="6847b0013e8e88ea1aadd891da383d39" />
+            </ModuleDetails>
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+  <component name="KondoLocalSettings">
+    <option name="lastHash">
+      <map>
+        <entry key="file://$PROJECT_DIR$/deps.edn" value="ecf160604c7dc686fd8487251fc2e877" />
+      </map>
+    </option>
+  </component>
+  <component name="ProjectColorInfo"><![CDATA[{
+  "associatedIndex": 2
+}]]></component>
+  <component name="ProjectId" id="36lRR2Wxw4D7zXdkiKUEICCtuKZ" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "ignore.virus.scanning.warn.message": "true"
+  }
+}]]></component>
+  <component name="RunManager">
+    <configuration default="true" type="Babashka" factoryName="BabashkaLocalRepl" activateToolWindowBeforeRun="false">
+      <setting name="displayName" value="" />
+      <setting name="bbPath" value="" />
+      <setting name="parameters" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <setting name="workingDir" value="" />
+      <setting name="focusEditor" value="false" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="REPL for attachify" type="ClojureREPL" factoryName="Local" activateToolWindowBeforeRun="false">
+      <option name="configVersion" value="1" />
+      <option name="displayName" value="REPL for attachify" />
+      <option name="execution" value="DEPS" />
+      <module name="attachify" />
+      <option name="options" value="-A:test" />
+      <option name="profiles" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <method v="2" />
+    </configuration>
+    <configuration default="true" type="ClojureREPL" factoryName="Local" activateToolWindowBeforeRun="false">
+      <method v="2" />
+    </configuration>
+    <configuration default="true" type="ClojureREPL" factoryName="Remote" activateToolWindowBeforeRun="false">
+      <setting name="displayName" value="" />
+      <setting name="host" value="" />
+      <setting name="port" value="0" />
+      <setting name="replType" value="SOCKET" />
+      <setting name="configType" value="SPECIFY" />
+      <setting name="replPortFileType" value="STANDARD" />
+      <setting name="customPortFile" value="" />
+      <setting name="fixLineNumbers" value="false" />
+      <setting name="useHeartbeat" value="true" />
+      <setting name="focusEditor" value="false" />
+      <setting name="urlFile" value="" />
+      <method v="2" />
+    </configuration>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="54ebfd76-594a-480f-9935-0981bcfe09d0" name="Changes" comment="" />
+      <created>1765579163335</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1765579163335</updated>
+    </task>
+    <servers />
+  </component>
+</project>
