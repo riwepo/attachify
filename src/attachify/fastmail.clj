@@ -16,7 +16,7 @@
                                   ["Email/query"
                                    {
                                     :accountId "accountId",
-                                    :filter   { :inMailbox "accountId" },
+                                    :filter   { :inMailbox "inboxId" },
                                     :sort     [ { :property "receivedAt", :isAscending false } ],
                                     :limit    10}
                                    ,
@@ -31,7 +31,9 @@
     (println headers)
     (println query-body)
     (println "Response status:" (:status response))
-    (println "Response headers:" (:headers response))))
+    (println "Response headers:" (:headers response))
+    (println "Response body (string):" (:body response))))
+
 
 
 (comment

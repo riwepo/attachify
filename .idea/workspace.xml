@@ -4,30 +4,8 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="54ebfd76-594a-480f-9935-0981bcfe09d0" name="Changes" comment="move config file to resources dir">
-      <change afterPath="$PROJECT_DIR$/.idea/dictionaries/project.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/libraries/Deps__cheshire_6_1_0.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/libraries/Deps__clj_http_3_13_1.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/libraries/Deps__com_fasterxml_jackson_core_jackson_core_2_20_0.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/libraries/Deps__com_fasterxml_jackson_dataformat_jackson_dataformat_cbor_2_20_0.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/libraries/Deps__com_fasterxml_jackson_dataformat_jackson_dataformat_smile_2_20_0.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/libraries/Deps__commons_codec_1_16_1.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/libraries/Deps__commons_io_2_16_1.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/libraries/Deps__commons_logging_1_2.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/libraries/Deps__org_apache_httpcomponents_httpasyncclient_4_1_5.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/libraries/Deps__org_apache_httpcomponents_httpclient_4_5_14.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/libraries/Deps__org_apache_httpcomponents_httpclient_cache_4_5_14.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/libraries/Deps__org_apache_httpcomponents_httpcore_4_4_16.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/libraries/Deps__org_apache_httpcomponents_httpcore_nio_4_4_15.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/libraries/Deps__org_apache_httpcomponents_httpmime_4_5_14.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/libraries/Deps__potemkin_0_4_7.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/libraries/Deps__riddley_0_1_12.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/libraries/Deps__slingshot_0_12_2.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/libraries/Deps__tigris_0_1_2.xml" afterDir="false" />
+    <list default="true" id="54ebfd76-594a-480f-9935-0981bcfe09d0" name="Changes" comment="imported cheshire and http client&#10;trying to read inbox">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/attachify.iml" beforeDir="false" afterPath="$PROJECT_DIR$/attachify.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/deps.edn" beforeDir="false" afterPath="$PROJECT_DIR$/deps.edn" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/attachify/core.clj" beforeDir="false" afterPath="$PROJECT_DIR$/src/attachify/core.clj" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/attachify/fastmail.clj" beforeDir="false" afterPath="$PROJECT_DIR$/src/attachify/fastmail.clj" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -106,7 +84,7 @@
       <recent name="C:\Users\richa\source\repos\attachify" />
     </key>
   </component>
-  <component name="ReplState" timestamp="1765769330340">{:repl-history {:ide [], :local [{:command &quot;(println \&quot;API Token:\&quot; (:api-token env))&quot;, :offset 39, :ns &quot;attachify.core&quot;} {:command &quot;(println \&quot;API Token:\&quot; (:fastmail_api_token env))&quot;, :offset 48, :ns &quot;attachify.core&quot;} {:command &quot;(slurp (io/resource \&quot;config.edn\&quot;))&quot;, :offset 34, :ns &quot;attachify.core&quot;} {:command &quot;(io/resource \&quot;config.edn\&quot;)&quot;, :offset 26, :ns &quot;attachify.core&quot;} {:command &quot;(io/resource \&quot;resources/config.edn\&quot;)&quot;, :offset 36, :ns &quot;attachify.core&quot;} {:command &quot;(slurp  \&quot;resources/config.edn\&quot;)&quot;, :offset 31, :ns &quot;attachify.core&quot;} {:command &quot;(println myEnv)&quot;, :offset 15, :ns &quot;attachify.core&quot;} {:command &quot;(println \&quot;API Token:\&quot; (:fastmail_api_token myEnv))&quot;, :offset 50, :ns &quot;attachify.core&quot;} {:command &quot;(comment\n  (def api-url \&quot;https://api.fastmail.com/jmap\&quot;)\n  (def access-token \&quot;fmu1-5c164056-5db4226acdc2c14ad1008fecc8082146-0-63118a547fec2b239a083d31bb977231\&quot;) ;; get this from your OAuth flow\n  (fetch-inbox-emails api-url access-token)\n    nil)&quot;, :offset 247, :ns &quot;attachify.fastmail&quot;} {:command &quot;(comment\n  (def api-url \&quot;https://api.fastmail.com/jmap\&quot;)\n  (def access-token \&quot;fmu1-5c164056-5db4226acdc2c14ad1008fecc8082146-0-63118a547fec2b239a083d31bb977231\&quot;) \n  (fetch-inbox-emails api-url access-token)\n    nil)&quot;, :offset 215, :ns &quot;attachify.fastmail&quot;} {:command &quot;(def api-url \&quot;https://api.fastmail.com/jmap\&quot;)&quot;, :offset 45, :ns &quot;attachify.fastmail&quot;} {:command &quot;(def access-token \&quot;fmu1-5c164056-5db4226acdc2c14ad1008fecc8082146-0-63118a547fec2b239a083d31bb977231\&quot;)&quot;, :offset 102, :ns &quot;attachify.fastmail&quot;} {:command &quot;(fetch-inbox-emails api-url access-token)&quot;, :offset 41, :ns &quot;attachify.fastmail&quot;} {:command &quot;(fetch-inbox-emails my-api-url my-access-token)&quot;, :offset 47, :ns &quot;attachify.fastmail&quot;}], :remote []}}</component>
+  <component name="ReplState" timestamp="1765769916409">{:repl-history {:ide [], :local [{:command &quot;(println \&quot;API Token:\&quot; (:api-token env))&quot;, :offset 39, :ns &quot;attachify.core&quot;} {:command &quot;(println \&quot;API Token:\&quot; (:fastmail_api_token env))&quot;, :offset 48, :ns &quot;attachify.core&quot;} {:command &quot;(slurp (io/resource \&quot;config.edn\&quot;))&quot;, :offset 34, :ns &quot;attachify.core&quot;} {:command &quot;(io/resource \&quot;config.edn\&quot;)&quot;, :offset 26, :ns &quot;attachify.core&quot;} {:command &quot;(io/resource \&quot;resources/config.edn\&quot;)&quot;, :offset 36, :ns &quot;attachify.core&quot;} {:command &quot;(slurp  \&quot;resources/config.edn\&quot;)&quot;, :offset 31, :ns &quot;attachify.core&quot;} {:command &quot;(println myEnv)&quot;, :offset 15, :ns &quot;attachify.core&quot;} {:command &quot;(println \&quot;API Token:\&quot; (:fastmail_api_token myEnv))&quot;, :offset 50, :ns &quot;attachify.core&quot;} {:command &quot;(comment\n  (def api-url \&quot;https://api.fastmail.com/jmap\&quot;)\n  (def access-token \&quot;fmu1-5c164056-5db4226acdc2c14ad1008fecc8082146-0-63118a547fec2b239a083d31bb977231\&quot;) ;; get this from your OAuth flow\n  (fetch-inbox-emails api-url access-token)\n    nil)&quot;, :offset 247, :ns &quot;attachify.fastmail&quot;} {:command &quot;(comment\n  (def api-url \&quot;https://api.fastmail.com/jmap\&quot;)\n  (def access-token \&quot;fmu1-5c164056-5db4226acdc2c14ad1008fecc8082146-0-63118a547fec2b239a083d31bb977231\&quot;) \n  (fetch-inbox-emails api-url access-token)\n    nil)&quot;, :offset 215, :ns &quot;attachify.fastmail&quot;} {:command &quot;(def api-url \&quot;https://api.fastmail.com/jmap\&quot;)&quot;, :offset 45, :ns &quot;attachify.fastmail&quot;} {:command &quot;(def access-token \&quot;fmu1-5c164056-5db4226acdc2c14ad1008fecc8082146-0-63118a547fec2b239a083d31bb977231\&quot;)&quot;, :offset 102, :ns &quot;attachify.fastmail&quot;} {:command &quot;(fetch-inbox-emails api-url access-token)&quot;, :offset 41, :ns &quot;attachify.fastmail&quot;} {:command &quot;(fetch-inbox-emails my-api-url my-access-token)&quot;, :offset 47, :ns &quot;attachify.fastmail&quot;}], :remote []}}</component>
   <component name="RunManager">
     <configuration default="true" type="Babashka" factoryName="BabashkaLocalRepl" activateToolWindowBeforeRun="false">
       <setting name="displayName" value="" />
@@ -206,13 +184,22 @@
       <option name="project" value="LOCAL" />
       <updated>1765759274165</updated>
     </task>
-    <option name="localTasksCounter" value="7" />
+    <task id="LOCAL-00007" summary="imported cheshire and http client&#10;trying to read inbox">
+      <option name="closed" value="true" />
+      <created>1765769446245</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1765769446245</updated>
+    </task>
+    <option name="localTasksCounter" value="8" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="initialise project" />
     <MESSAGE value="implement basic structure&#10;add yogthos config file" />
     <MESSAGE value="move config file to resources dir" />
-    <option name="LAST_COMMIT_MESSAGE" value="move config file to resources dir" />
+    <MESSAGE value="imported cheshire and http client&#10;trying to read inbox" />
+    <option name="LAST_COMMIT_MESSAGE" value="imported cheshire and http client&#10;trying to read inbox" />
   </component>
 </project>
