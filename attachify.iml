@@ -13,6 +13,7 @@
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="library" name="Deps: org.clojure/clojure:1.12.1" level="project" />
+    <orderEntry type="library" name="Deps: yogthos/config:1.2.1" level="project" />
     <orderEntry type="library" name="Deps: org.clojure/spec.alpha:0.5.238" level="project" />
     <orderEntry type="library" name="Deps: org.clojure/core.specs.alpha:0.4.74" level="project" />
   </component>
