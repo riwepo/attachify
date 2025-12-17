@@ -1,8 +1,9 @@
 (ns attachify.fastmail
-  (:require [clj-http.client :as http]
+  (:require [clojure.pprint :refer [pprint]]
+            [clj-http.client :as http]
             [cheshire.core :as json]))
 
-(def my-hostname "api.fastmail.com")                           ;
+(def my-hostname "api.fastmail.com")                        ;
 (def my-username "attachify")
 (def my-auth-url (str "https://" my-hostname "/.well-known/jmap"))
 (def my-api-url "https://api.fastmail.com/jmap/api/")
@@ -16,44 +17,66 @@
     (:body response)))
 
 (defn get-account-id [session]
-  (get-in session [:primaryAccounts :urn:ietf:params:jmap:submission]))
+  (get-in session [:primaryAccounts :urn:ietf:params:jmap:mail]))
+
+(defn fetch-inbox-id
+  [api-url access-token account-id]
+  (let [
+        headers {"Authorization" (str "Bearer " access-token)
+                 "Content-Type"  "application/json; charset=utf-8"}
+        query-body {:using ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"]
+                    :methodCalls
+                    [
+                     ["Mailbox/query"
+                      {
+                       :accountId account-id,
+                       :filter    {:role "inbox"}}
+                      "a"]]}
+
+        response (http/post api-url
+                            {:headers headers
+                             :body    (json/encode query-body)
+                             :as      :auto})
+        response-body (:body response)
+        method-response (first (:methodResponses response-body))
+        query-data (second method-response)
+        inbox-id (first (:ids query-data))]
+    (println "Method response:" method-response)
+    (println "Query data:" query-data)
+    (println "Inbox id:" inbox-id)
+    inbox-id))
 
 (defn fetch-inbox-emails
-  [api-url access-token account-id]
+  [api-url access-token account-id inbox-id]
   (let [
         headers {"Authorization" (str "Bearer " access-token)
                  "Content-Type"  "application/json; charset=utf-8"}
         ;; Step 1: Query email IDs in Inbox
         query-body {:using ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"]
-                    :methodCalls [
-                                  ["Email/query"
-                                   {
-                                    :accountId "accountId",
-                                    :filter   { :inMailbox "inboxId" },
-                                    :sort     [ { :property "receivedAt", :isAscending false } ],
-                                    :limit    10}
-                                   ,
-                                   "a"]]}
-
-
+                    :methodCalls
+                    [
+                     ["Email/query"
+                      {
+                       :accountId account-id,
+                       :filter    {:inMailbox inbox-id}}
+                      "a"]]}
         response (http/post api-url
                             {:headers headers
-                             :body (json/encode query-body)
-                             :as :auto})]
-
+                             :body    (json/encode query-body)
+                             :as      :auto})]
     (println headers)
     (println query-body)
     (println "Response status:" (:status response))
     (println "Response headers:" (:headers response))
     (println "Response body (string):" (:body response))))
 
-
-
 (comment
   (def session (fetch-session my-auth-url my-access-token))
-  (println session)
+  (pprint session)
   (def account-id (get-account-id session))
   (println account-id)
-  (fetch-inbox-emails my-api-url my-access-token account-id)
+  (def inbox-id (fetch-inbox-id my-api-url my-access-token account-id))
+  (println inbox-id)
+  (fetch-inbox-emails my-api-url my-access-token account-id inbox-id)
   nil)
 
