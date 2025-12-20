@@ -1,5 +1,6 @@
 (ns attachify.fastmail
   (:require [clojure.pprint :refer [pprint]]
+            [clojure.string :as str]
             [clj-http.client :as http]
             [cheshire.core :as json]))
 
@@ -46,29 +47,79 @@
     (println "Inbox id:" inbox-id)
     inbox-id))
 
-(defn fetch-inbox-emails
-  [api-url access-token account-id inbox-id]
+(defn fetch-email-ids
+  [api-url access-token account-id mailbox-id]
   (let [
         headers {"Authorization" (str "Bearer " access-token)
                  "Content-Type"  "application/json; charset=utf-8"}
-        ;; Step 1: Query email IDs in Inbox
         query-body {:using ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"]
                     :methodCalls
                     [
                      ["Email/query"
                       {
                        :accountId account-id,
-                       :filter    {:inMailbox inbox-id}}
+                       :filter    {:inMailbox mailbox-id}}
                       "a"]]}
         response (http/post api-url
                             {:headers headers
                              :body    (json/encode query-body)
-                             :as      :auto})]
-    (println headers)
-    (println query-body)
-    (println "Response status:" (:status response))
-    (println "Response headers:" (:headers response))
-    (println "Response body (string):" (:body response))))
+                             :as      :auto})
+        body (:body response)
+        method-response (first (:methodResponses body))
+        method-response-data (second method-response)
+        email-ids (:ids method-response-data)]
+    email-ids))
+
+(defn fetch-email-by-id
+  [api-url access-token account-id email-id]
+  (let [headers {"Authorization" (str "Bearer " access-token)
+                 "Content-Type"  "application/json; charset=utf-8"}
+        query-body {:using ["urn:ietf:params:jmap:core" "urn:ietf:params:jmap:mail"]
+                    :methodCalls
+                    [["Email/get"
+                      {:accountId account-id
+                       :ids       [email-id]}
+                      "a"]]}
+        response (http/post api-url
+                            {:headers headers
+                             :body    (json/encode query-body)
+                             :as      :auto})
+        body (:body response)
+        method-response (first (:methodResponses body))
+        method-response-data (second method-response)
+        emails (:list method-response-data)]
+    (first emails))) ;; return the single email map
+
+(defn inline-image-blob-ids
+  [email]
+  (->> (:attachments email)
+       (filter #(and
+                  (= "inline" (:disposition %))
+                  (str/starts-with? (:type %) "image/")))
+       (map :blobId)
+       (remove nil?)
+       (into [])))
+
+(defn fetch-blob
+  [api-url access-token account-id blob-id]
+  (let [headers {"Authorization" (str "Bearer " access-token)
+                 "Content-Type"  "application/json; charset=utf-8"}
+        query-body {:using ["urn:ietf:params:jmap:core" "urn:ietf:params:jmap:mail"]
+                    :methodCalls
+                    [["Blob/get"
+                      {:accountId account-id
+                       :ids       [blob-id]}
+                      "a"]]}
+        response (http/post api-url
+                            {:headers headers
+                             :body    (json/encode query-body)
+                             :as      :auto})
+        body (:body response)
+        method-response (first (:methodResponses body))
+        method-response-data (second method-response)
+        blobs (:list method-response-data)]
+    (println response)
+    (first blobs))) ;; returns a map with blob metadata and (usually) a 'blob' or 'data' field with content
 
 (comment
   (def session (fetch-session my-auth-url my-access-token))
@@ -77,6 +128,15 @@
   (println account-id)
   (def inbox-id (fetch-inbox-id my-api-url my-access-token account-id))
   (println inbox-id)
-  (fetch-inbox-emails my-api-url my-access-token account-id inbox-id)
+  (def email-ids (fetch-email-ids my-api-url my-access-token account-id inbox-id))
+  (def email-id (second email-ids))
+  (println email-id)
+  (def email (fetch-email-by-id my-api-url my-access-token account-id email-id))
+  (pprint email)
+  (def blob-ids (inline-image-blob-ids email))
+  (def blob-id (first blob-ids))
+  (print blob-id)
+  (def blob (fetch-blob my-api-url my-access-token account-id blob-id))
+  (println blob)
   nil)
 
