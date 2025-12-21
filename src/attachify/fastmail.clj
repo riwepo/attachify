@@ -1,25 +1,30 @@
 (ns attachify.fastmail
   (:require [clojure.pprint :refer [pprint]]
             [clojure.string :as str]
+            [clojure.edn :as edn]
             [clj-http.client :as http]
             [cheshire.core :as json])
   (:import [java.net URLEncoder]
            [java.nio.charset StandardCharsets]))
 
-(def my-hostname "api.fastmail.com")                        ;
-(def my-auth-url (str "https://" my-hostname "/.well-known/jmap"))
-(def my-access-token "fmu1-5c164056-5db4226acdc2c14ad1008fecc8082146-0-63118a547fec2b239a083d31bb977231")
+(defn get-email-auth-url
+  [config]
+  (let [hostname (:email-hostname config)
+        auth-url-template (:email-auth-url config)]
+    (str/replace auth-url-template "{hostname}" hostname)))
 
 (defn url-encode [data]
   ;; Use URLEncoder/encode with the UTF-8 charset
   (URLEncoder/encode data StandardCharsets/UTF_8))
 
 (defn fetch-session
-  [auth-url access-token]
-  (let [headers {"Authorization" (str "Bearer " access-token)
+  [config]
+  (let [headers {"Authorization" (str "Bearer " (:email-api-token config))
                  "Content-Type"  "application/json; charset=utf-8"}
-        response (http/get auth-url {:headers headers :as :json})]
-    (:body response)))
+        auth-url (get-email-auth-url config)
+        response (http/get auth-url {:headers headers :as :json})
+        session (:body response)]
+    (assoc session :api-token (:email-api-token config))))
 
 (defn get-account-id [session]
   (get-in session [:primaryAccounts :urn:ietf:params:jmap:mail]))
@@ -31,9 +36,9 @@
   (:apiUrl session))
 
 (defn fetch-inbox-id
-  [access-token session]
+  [session]
   (let [
-        headers {"Authorization" (str "Bearer " access-token)
+        headers {"Authorization" (str "Bearer " (:api-token session))
                  "Content-Type"  "application/json; charset=utf-8"}
         query-body {:using ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"]
                     :methodCalls
@@ -58,9 +63,9 @@
     inbox-id))
 
 (defn fetch-email-ids
-  [access-token session mailbox-id]
+  [session mailbox-id]
   (let [
-        headers {"Authorization" (str "Bearer " access-token)
+        headers {"Authorization" (str "Bearer " (:api-token session))
                  "Content-Type"  "application/json; charset=utf-8"}
         query-body {:using ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"]
                     :methodCalls
@@ -81,8 +86,8 @@
     email-ids))
 
 (defn fetch-email-by-id
-  [access-token session email-id]
-  (let [headers {"Authorization" (str "Bearer " access-token)
+  [session email-id]
+  (let [headers {"Authorization" (str "Bearer " (:api-token session))
                  "Content-Type"  "application/json; charset=utf-8"}
         query-body {:using ["urn:ietf:params:jmap:core" "urn:ietf:params:jmap:mail"]
                     :methodCalls
@@ -127,7 +132,7 @@
     (str filename ext)))
 
 (defn download-blob
-  [access-token session blob filename]
+  [session blob filename]
   (let [filename (or filename "file")
         ext (get mime->ext (:type blob))
         filename-with-ext (add-extension-if-missing filename ext)
@@ -138,17 +143,17 @@
                          (str/replace "{blobId}" (:id blob))
                          (str/replace "{name}" encoded-filename)
                          (str/replace "{type}" encoded-type))
-        headers {"Authorization" (str "Bearer " access-token)}]
+        headers {"Authorization" (str "Bearer " (:api-token session))}]
     (println "Downloading blob from URL:" download-url)
     (http/get download-url {:headers headers :as :byte-array})))
 
 (defn fetch-first-inline-image-blob
-  [auth-url access-token]
-  (let [session (fetch-session auth-url access-token)
-        inbox-id (fetch-inbox-id access-token session)
-        email-ids (fetch-email-ids access-token session inbox-id)
+  [config]
+  (let [session (fetch-session config)
+        inbox-id (fetch-inbox-id session)
+        email-ids (fetch-email-ids session inbox-id)
         email-id (second email-ids)
-        email (fetch-email-by-id access-token session email-id)
+        email (fetch-email-by-id session email-id)
         blobs (inline-image-blobs email)
         blob (first blobs)]
     (println "Session:")
@@ -165,22 +170,28 @@
      :blob blob}))
 
 (comment
-  (def session (fetch-session my-auth-url my-access-token))
+  (defn load-config
+    []
+    (-> "resources/config.edn"
+        slurp
+        edn/read-string))
+  (def config (load-config))
+  (def session (fetch-session config))
   (pprint session)
-  (def inbox-id (fetch-inbox-id my-access-token session))
+  (def inbox-id (fetch-inbox-id session))
   (println inbox-id)
-  (def email-ids (fetch-email-ids my-access-token session inbox-id))
+  (def email-ids (fetch-email-ids session inbox-id))
   (def email-id (second email-ids))
   (println email-id)
-  (def email (fetch-email-by-id my-access-token session email-id))
+  (def email (fetch-email-by-id session email-id))
   (pprint email)
   (def blobs (inline-image-blobs email))
   (def blob (first blobs))
   (print blob)
   nil
-  (def my-data (fetch-first-inline-image-blob my-auth-url my-access-token))
+  (def my-data (fetch-first-inline-image-blob config))
   (pprint my-data)
-  (def download (download-blob my-access-token (:session my-data) (:blob my-data) "email-attachment"))
+  (def download (download-blob (:session my-data) (:blob my-data) "email-attachment"))
   (pprint download)
   nil)
 
