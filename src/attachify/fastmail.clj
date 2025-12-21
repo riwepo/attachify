@@ -31,7 +31,7 @@
   (:apiUrl session))
 
 (defn fetch-inbox-id
-  [api-url access-token account-id]
+  [access-token session]
   (let [
         headers {"Authorization" (str "Bearer " access-token)
                  "Content-Type"  "application/json; charset=utf-8"}
@@ -40,11 +40,11 @@
                     [
                      ["Mailbox/query"
                       {
-                       :accountId account-id,
+                       :accountId (get-account-id session),
                        :filter    {:role "inbox"}}
                       "a"]]}
 
-        response (http/post api-url
+        response (http/post (get-api-url session)
                             {:headers headers
                              :body    (json/encode query-body)
                              :as      :auto})
@@ -58,7 +58,7 @@
     inbox-id))
 
 (defn fetch-email-ids
-  [api-url access-token account-id mailbox-id]
+  [access-token session mailbox-id]
   (let [
         headers {"Authorization" (str "Bearer " access-token)
                  "Content-Type"  "application/json; charset=utf-8"}
@@ -67,10 +67,10 @@
                     [
                      ["Email/query"
                       {
-                       :accountId account-id,
+                       :accountId (get-account-id session),
                        :filter    {:inMailbox mailbox-id}}
                       "a"]]}
-        response (http/post api-url
+        response (http/post (get-api-url session)
                             {:headers headers
                              :body    (json/encode query-body)
                              :as      :auto})
@@ -81,16 +81,16 @@
     email-ids))
 
 (defn fetch-email-by-id
-  [api-url access-token account-id email-id]
+  [access-token session email-id]
   (let [headers {"Authorization" (str "Bearer " access-token)
                  "Content-Type"  "application/json; charset=utf-8"}
         query-body {:using ["urn:ietf:params:jmap:core" "urn:ietf:params:jmap:mail"]
                     :methodCalls
                     [["Email/get"
-                      {:accountId account-id
+                      {:accountId (get-account-id session)
                        :ids       [email-id]}
                       "a"]]}
-        response (http/post api-url
+        response (http/post (get-api-url session)
                             {:headers headers
                              :body    (json/encode query-body)
                              :as      :auto})
@@ -100,76 +100,87 @@
         emails (:list method-response-data)]
     (first emails))) ;; return the single email map
 
-(defn inline-image-blob-ids
+(defn inline-image-blobs
   [email]
   (->> (:attachments email)
        (filter #(and
                   (= "inline" (:disposition %))
                   (str/starts-with? (:type %) "image/")))
-       (map :blobId)
-       (remove nil?)
+       (remove #(nil? (:blobId %)))
+       (map #(hash-map :id (:blobId %)
+                       :type    (:type %)))
        (into [])))
 
+(def mime->ext
+  {"image/jpeg" ".jpg"
+   "image/png"  ".png"
+   "image/gif"  ".gif"
+   "image/svg+xml" ".svg"
+   "application/pdf" ".pdf"})
+   ;; add more mappings as needed
+
+(defn add-extension-if-missing
+  [filename ext]
+  (if (or (str/blank? ext)
+          (str/ends-with? filename ext))
+    filename
+    (str filename ext)))
+
 (defn download-blob
-  [download-url-template access-token account-id blob-id content-type filename]
+  [access-token session blob filename]
   (let [filename (or filename "file")
-        encoded-filename (url-encode filename)
-        encoded-type (url-encode content-type)
-        download-url (-> download-url-template
-                         (str/replace "{accountId}" account-id)
-                         (str/replace "{blobId}" blob-id)
+        ext (get mime->ext (:type blob))
+        filename-with-ext (add-extension-if-missing filename ext)
+        encoded-filename (url-encode filename-with-ext)
+        encoded-type (url-encode (:type blob))
+        download-url (-> (get-download-url session)
+                         (str/replace "{accountId}" (get-account-id session))
+                         (str/replace "{blobId}" (:id blob))
                          (str/replace "{name}" encoded-filename)
                          (str/replace "{type}" encoded-type))
         headers {"Authorization" (str "Bearer " access-token)}]
     (println "Downloading blob from URL:" download-url)
     (http/get download-url {:headers headers :as :byte-array})))
 
-(defn fetch-first-inline-image-blob-id
+(defn fetch-first-inline-image-blob
   [auth-url access-token]
   (let [session (fetch-session auth-url access-token)
-        account-id (get-account-id session)
-        download-url (get-download-url session)
-        api-url (get-api-url session)
-        inbox-id (fetch-inbox-id api-url access-token account-id)
-        email-ids (fetch-email-ids api-url access-token account-id inbox-id)
+        inbox-id (fetch-inbox-id access-token session)
+        email-ids (fetch-email-ids access-token session inbox-id)
         email-id (second email-ids)
-        email (fetch-email-by-id api-url access-token account-id email-id)
-        blob-ids (inline-image-blob-ids email)
-        blob-id (first blob-ids)]
-    (println "Session:" session)
-    (println "Account ID:" account-id)
-    (println "Download URL:" download-url)
-    (println "API URL:" api-url)
+        email (fetch-email-by-id access-token session email-id)
+        blobs (inline-image-blobs email)
+        blob (first blobs)]
+    (println "Session:")
+    (pprint session)
     (println "Inbox ID:" inbox-id)
     (println "Email IDs:" email-ids)
     (println "Selected Email ID:" email-id)
     (println "Email:" email)
-    (println "Inline Image Blob IDs:" blob-ids)
-    (println "Selected Blob ID:" blob-id)
-    {:api-url api-url :download-url download-url :account-id account-id :inbox-id inbox-id :email-id email-id :blob-id blob-id}))
+    (println "Inline Image Blobs:" blobs)
+    (println "Selected Blob:" blob)
+    {:session session
+     :inbox-id inbox-id
+     :email-id email-id
+     :blob blob}))
 
 (comment
   (def session (fetch-session my-auth-url my-access-token))
   (pprint session)
-  (def account-id (get-account-id session))
-  (println account-id)
-  (def download-url (get-download-url session))
-  (println download-url)
-  (def api-url (get-api-url session))
-  (println api-url)
-  (def inbox-id (fetch-inbox-id api-url my-access-token account-id))
+  (def inbox-id (fetch-inbox-id my-access-token session))
   (println inbox-id)
-  (def email-ids (fetch-email-ids api-url my-access-token account-id inbox-id))
+  (def email-ids (fetch-email-ids my-access-token session inbox-id))
   (def email-id (second email-ids))
   (println email-id)
-  (def email (fetch-email-by-id api-url my-access-token account-id email-id))
+  (def email (fetch-email-by-id my-access-token session email-id))
   (pprint email)
-  (def blob-ids (inline-image-blob-ids email))
-  (def blob-id (first blob-ids))
-  (print blob-id)
+  (def blobs (inline-image-blobs email))
+  (def blob (first blobs))
+  (print blob)
   nil
-  (def my-data (fetch-first-inline-image-blob-id my-auth-url my-access-token))
-  (println my-data)
-  ;(download-blob (:download-url my-data) my-access-token (:account-id my-data) (:blob-id my-data) "email-attachment")
+  (def my-data (fetch-first-inline-image-blob my-auth-url my-access-token))
+  (pprint my-data)
+  (def download (download-blob my-access-token (:session my-data) (:blob my-data) "email-attachment"))
+  (pprint download)
   nil)
 
