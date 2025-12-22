@@ -61,6 +61,13 @@
             (:id mbox)))
         (:list mailbox-data)))
 
+(defn get-drafts-id
+  [mailbox-data]
+  (some (fn [mbox]
+          (when (= (:role mbox) "drafts")
+            (:id mbox)))
+        (:list mailbox-data)))
+
 (defn get-processed-id
   [mailbox-data]
   (some (fn [mbox]
@@ -196,6 +203,117 @@
      :email-id email-id
      :blob     blob}))
 
+(defn create-draft-email
+  [session mailbox-data email-text from-address to-address]
+  (let [headers {"Authorization" (str "Bearer " (:api-token session))
+                 "Content-Type"  "application/json; charset=utf-8"}
+        account-id (get-account-id session)
+        drafts-id (get-drafts-id mailbox-data)
+        email-id "draftId" ;; client-side temporary id matching your JSON example
+        email-object
+        { :from [{:email from-address}]
+         :to [{:email to-address}]
+         :subject "My Draft Email Subject"
+         :mailboxIds {drafts-id true}
+         :keywords {"$draft" true}
+         :textBody [{:partId "body"
+                     :type "text/plain"}]
+         :bodyValues {"body" {:charset "utf-8"
+                              :value email-text}}}
+        method-calls
+        [["Email/set"
+          {:accountId account-id
+           :create {email-id email-object}}
+          "0"]]
+        request-body {:using ["urn:ietf:params:jmap:core"
+                              "urn:ietf:params:jmap:mail"]
+                      :methodCalls method-calls}
+        response (http/post (get-api-url session)
+                            {:headers headers
+                             :body    (json/encode request-body)
+                             :as      :auto})]
+    (println "Create draft email response:" (:body response))
+    response))
+
+
+
+(defn send-email
+  [session email address]
+  (let [headers {"Authorization" (str "Bearer " (:api-token session))
+                 "Content-Type"  "application/json; charset=utf-8"}
+        account-id (get-account-id session)
+        email-id "new-email" ;; client-side temporary id
+        submission-id "new-submission"
+        ;; Ensure :from is a vector of maps, :to is vector of {:email ...}
+        email-object (-> email
+                         (dissoc :mailboxIds) ;; remove mailboxIds to avoid invalidProperties error
+                         (assoc :to (if (vector? address)
+                                      (mapv #(hash-map :email %) address)
+                                      [{:email address}])))
+        method-calls
+        [
+         ;; Create Email
+         ["Email/set"
+          {:accountId account-id
+           :create {email-id email-object}}
+          "a"]
+
+         ;; Submit Email for sending
+         ["EmailSubmission/set"
+          {:accountId account-id
+           :create {submission-id {:emailId email-id
+                                   :envelope {:mailFrom (get-in email [:from 0 :email])
+                                              :rcptTo (if (vector? address)
+                                                        address
+                                                        [address])}}}}
+          "b"]]
+
+        request-body {:using ["urn:ietf:params:jmap:core"
+                              "urn:ietf:params:jmap:mail"
+                              "urn:ietf:params:jmap:submission"]
+                      :methodCalls method-calls}
+        response (http/post (get-api-url session)
+                            {:headers headers
+                             :body    (json/encode request-body)
+                             :as      :auto})]
+    (println "Send email response:" (:body response))
+    response))
+
+(defn send-simple-email
+  [session from-email to-email subject body-text]
+  (let [headers {"Authorization" (str "Bearer " (:api-token session))
+                 "Content-Type"  "application/json; charset=utf-8"}
+        account-id (get-account-id session)
+        email-id "e1"
+        submission-id "s1"
+        email-object {:from [{:email from-email}]
+                      :to [{:email to-email}]
+                      :subject subject
+                      :textBody body-text}
+        method-calls
+        [
+         ["Email/set"
+          {:accountId account-id
+           :create {email-id email-object}}
+          "a"]
+         ["EmailSubmission/set"
+          {:accountId account-id
+           :create {submission-id {:emailId email-id
+                                   :envelope {:mailFrom from-email
+                                              :rcptTo [to-email]}}}}
+          "b"]]
+
+        request-body {:using ["urn:ietf:params:jmap:core"
+                              "urn:ietf:params:jmap:mail"
+                              "urn:ietf:params:jmap:submission"]
+                      :methodCalls method-calls}
+        response (http/post (get-api-url session)
+                            {:headers headers
+                             :body    (json/encode request-body)
+                             :as      :auto})]
+    (println "Response:" (:body response))
+    response))
+
 (comment
   (defn load-config
     []
@@ -228,6 +346,26 @@
   (pprint my-data)
   (def download (download-blob (:session my-data) (:blob my-data) "email-attachment"))
   (pprint download)
+  (def send-response (send-email session
+                                 {:from     [{:email "attachify@fastmail.com" :name "Me"}]
+                                  :subject  "Hello"
+                                  :textBody "This is a test email."}
+                                 "riwepo.work@gmail.com"))
+  (pprint send-response)
+  (def simple-send-response (send-simple-email
+                              session
+                              "attachify@fastmail.com"
+                              "riwepo.work@gmail.com"
+                              "test-subject"
+                              "test-body"))
+  (pprint simple-send-response)
+  (def create-draft-response (create-draft-email session
+                                                 mailbox-data
+                                                 "This email is saved as a draft."
+                                                 "attachify@fastmail.com"
+                                                 "riwepo.work@gmail.com"))
+  (pprint create-draft-response)
+
 
   nil)
 
