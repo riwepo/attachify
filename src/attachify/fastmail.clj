@@ -35,32 +35,39 @@
 (defn get-api-url [session]
   (:apiUrl session))
 
-(defn fetch-inbox-id
+(defn fetch-mailbox-data
   [session]
-  (let [
-        headers {"Authorization" (str "Bearer " (:api-token session))
+  (let [headers {"Authorization" (str "Bearer " (:api-token session))
                  "Content-Type"  "application/json; charset=utf-8"}
-        query-body {:using ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"]
+        ;; Query all mailboxes (no filter)
+        query-body {:using ["urn:ietf:params:jmap:core" "urn:ietf:params:jmap:mail"]
                     :methodCalls
-                    [
-                     ["Mailbox/query"
-                      {
-                       :accountId (get-account-id session),
-                       :filter    {:role "inbox"}}
+                    [["Mailbox/get"
+                      {:accountId (get-account-id session)
+                       :ids       nil} ;; nil means all mailboxes
                       "a"]]}
-
         response (http/post (get-api-url session)
                             {:headers headers
                              :body    (json/encode query-body)
                              :as      :auto})
         response-body (:body response)
         method-response (first (:methodResponses response-body))
-        query-data (second method-response)
-        inbox-id (first (:ids query-data))]
-    (println "Method response:" method-response)
-    (println "Query data:" query-data)
-    (println "Inbox id:" inbox-id)
-    inbox-id))
+        mailbox-data (second method-response)]
+    mailbox-data))
+
+(defn get-inbox-id
+  [mailbox-data]
+  (some (fn [mbox]
+          (when (= (:role mbox) "inbox")
+            (:id mbox)))
+        (:list mailbox-data)))
+
+(defn get-processed-id
+  [mailbox-data]
+  (some (fn [mbox]
+          (when (= (:name mbox) "Processed")
+            (:id mbox)))
+        (:list mailbox-data)))
 
 (defn fetch-email-ids
   [session mailbox-id]
@@ -150,7 +157,8 @@
 (defn fetch-first-inline-image-blob
   [config]
   (let [session (fetch-session config)
-        inbox-id (fetch-inbox-id session)
+        mailbox-data (fetch-mailbox-data session)
+        inbox-id (get-inbox-id mailbox-data)
         email-ids (fetch-email-ids session inbox-id)
         email-id (second email-ids)
         email (fetch-email-by-id session email-id)
@@ -178,10 +186,17 @@
   (def config (load-config))
   (def session (fetch-session config))
   (pprint session)
-  (def inbox-id (fetch-inbox-id session))
+  (def mailbox-data (fetch-mailbox-data session))
+  (pprint mailbox-data)
+  (def inbox-id (get-inbox-id mailbox-data))
   (println inbox-id)
-  (def email-ids (fetch-email-ids session inbox-id))
-  (def email-id (second email-ids))
+  (def processed-id (get-processed-id mailbox-data))
+  (println processed-id)
+  (def inbox-email-ids (fetch-email-ids session inbox-id))
+  (println inbox-email-ids)
+  (def processed-email-ids (fetch-email-ids session processed-id))
+  (println processed-email-ids)
+  (def email-id (second inbox-email-ids))
   (println email-id)
   (def email (fetch-email-by-id session email-id))
   (pprint email)
@@ -193,5 +208,6 @@
   (pprint my-data)
   (def download (download-blob (:session my-data) (:blob my-data) "email-attachment"))
   (pprint download)
+
   nil)
 
