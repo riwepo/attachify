@@ -39,12 +39,11 @@
   [session]
   (let [headers {"Authorization" (str "Bearer " (:api-token session))
                  "Content-Type"  "application/json; charset=utf-8"}
-        ;; Query all mailboxes (no filter)
         query-body {:using ["urn:ietf:params:jmap:core" "urn:ietf:params:jmap:mail"]
                     :methodCalls
                     [["Mailbox/get"
                       {:accountId (get-account-id session)
-                       :ids       nil} ;; nil means all mailboxes
+                       :ids       nil}                      ;; nil means all mailboxes
                       "a"]]}
         response (http/post (get-api-url session)
                             {:headers headers
@@ -110,7 +109,7 @@
         method-response (first (:methodResponses body))
         method-response-data (second method-response)
         emails (:list method-response-data)]
-    (first emails))) ;; return the single email map
+    (first emails)))                                        ;; return the single email map
 
 (defn inline-image-blobs
   [email]
@@ -120,16 +119,16 @@
                   (str/starts-with? (:type %) "image/")))
        (remove #(nil? (:blobId %)))
        (map #(hash-map :id (:blobId %)
-                       :type    (:type %)))
+                       :type (:type %)))
        (into [])))
 
 (def mime->ext
-  {"image/jpeg" ".jpg"
-   "image/png"  ".png"
-   "image/gif"  ".gif"
-   "image/svg+xml" ".svg"
+  {"image/jpeg"      ".jpg"
+   "image/png"       ".png"
+   "image/gif"       ".gif"
+   "image/svg+xml"   ".svg"
    "application/pdf" ".pdf"})
-   ;; add more mappings as needed
+;; add more mappings as needed
 
 (defn add-extension-if-missing
   [filename ext]
@@ -137,6 +136,26 @@
           (str/ends-with? filename ext))
     filename
     (str filename ext)))
+
+(defn move-email-to-processed
+  [session mailbox-data email-id]
+  (let [processed-id (get-processed-id mailbox-data)
+        headers {"Authorization" (str "Bearer " (:api-token session))
+                 "Content-Type"  "application/json; charset=utf-8"}
+        set-msg-payload {:using ["urn:ietf:params:jmap:core" "urn:ietf:params:jmap:mail"]
+                         :methodCalls
+                         [["Email/set"
+                           {:accountId (get-account-id session)
+                            :update    {email-id {:mailboxIds {processed-id true}}}}
+                           "a"]]}
+        response (http/post (get-api-url session)
+                            {:headers headers
+                             :body    (json/encode set-msg-payload)
+                             :as      :auto})]
+    (println "Move response:" (:body response))
+    response))
+
+
 
 (defn download-blob
   [session blob filename]
@@ -172,10 +191,10 @@
     (println "Email:" email)
     (println "Inline Image Blobs:" blobs)
     (println "Selected Blob:" blob)
-    {:session session
+    {:session  session
      :inbox-id inbox-id
      :email-id email-id
-     :blob blob}))
+     :blob     blob}))
 
 (comment
   (defn load-config
@@ -198,6 +217,7 @@
   (println processed-email-ids)
   (def email-id (second inbox-email-ids))
   (println email-id)
+  (move-email-to-processed session mailbox-data email-id)
   (def email (fetch-email-by-id session email-id))
   (pprint email)
   (def blobs (inline-image-blobs email))
