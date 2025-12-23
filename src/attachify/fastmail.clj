@@ -204,23 +204,43 @@
     (println "Move response:" (:body response))
     response))
 
-
+(defn bytes->string
+  [byte-array & {:keys [charset] :or {charset "UTF-8"}}]
+  (String. byte-array charset))
 
 (defn download-blob
   [session blob filename]
-  (let [filename (or filename "file")
-        ext (get mime->ext (:type blob))
-        filename-with-ext (add-extension-if-missing filename ext)
-        encoded-filename (url-encode filename-with-ext)
-        encoded-type (url-encode (:type blob))
-        download-url (-> (get-download-url session)
-                         (str/replace "{accountId}" (get-account-id session))
-                         (str/replace "{blobId}" (:id blob))
-                         (str/replace "{name}" encoded-filename)
-                         (str/replace "{type}" encoded-type))
-        headers {"Authorization" (str "Bearer " (:api-token session))}]
-    (println "Downloading blob from URL:" download-url)
-    (http/get download-url {:headers headers :as :byte-array})))
+  (try
+    (let [filename (or filename "file")
+          ext (get mime->ext (:type blob))
+          filename-with-ext (add-extension-if-missing filename ext)
+          encoded-filename (url-encode filename-with-ext)
+          encoded-type (url-encode (:type blob))
+          download-url (-> (get-download-url session)
+                           (str/replace "{accountId}" (get-account-id session))
+                           (str/replace "{blobId}" (:id blob))
+                           (str/replace "{name}" encoded-filename)
+                           (str/replace "{type}" encoded-type))
+          headers {"Authorization" (str "Bearer " (:api-token session))}
+          response (http/get download-url {:headers headers :as :byte-array})
+          bytes (:body response)
+          decoded-content (if (and (:type blob)
+                                   (or (str/starts-with? (:type blob) "text/")
+                                       (= (:type blob) "application/json")
+                                       (= (:type blob) "application/xml")))
+                            ;; decode text-like content as string
+                            (bytes->string bytes :charset "UTF-8")
+                            ;; else keep raw bytes (e.g. images, pdfs)
+                            bytes)]
+      {:success true
+       :error false
+       :error-message nil
+       :result decoded-content})
+    (catch Exception e
+      {:success false
+       :error true
+       :error-message (str "Failed to download or decode blob: " (.getMessage e))
+       :result nil})))
 
 (defn fetch-first-inline-image-blob
   [config]
@@ -416,36 +436,49 @@
         (println "Move draft to sent mailbox response:" (:body response-step2))
         response-step2))))
 
-(def forbidden-nested-keys [:size :charset :partId :blobId])
-
-(defn remove-forbidden-nested-keys
-  [data]
-  (cond
-    (map? data) (into {}
-                      (for [[k v] data
-                            :when (not (some #{k} forbidden-nested-keys))]
-                        [k (remove-forbidden-nested-keys v)]))
-    (sequential? data) (mapv remove-forbidden-nested-keys data)
-    :else data))
-
-(def forbidden-top-level [:id :size :preview :threadId :blobId :hasAttachment])
-
-(defn sanitize-email-for-create
+(defn get-blobs-to-download
   [email]
-  (let [email-no-top-level (apply dissoc email forbidden-top-level)
-        email-cleaned (remove-forbidden-nested-keys email-no-top-level)
-        ;; Remove :isInline to convert inline attachments to normal attachments
-        updated-attachments (mapv #(dissoc % :isInline) (:attachments email-cleaned))]
-    (assoc email-cleaned :attachments updated-attachments)))
+  (let [text-blobs (map (fn [part]
+                          {:role :textBody
+                           :id (:blobId part)
+                           :type (:type part)})
+                        (:textBody email))
+        html-blobs (map (fn [part]
+                          {:role :htmlBody
+                           :id (:blobId part)
+                           :type (:type part)})
+                        (:htmlBody email))
+        attachment-blobs (map (fn [att]
+                                {:role :attachment
+                                 :id (:blobId att)
+                                 :type (:type att)})
+                              (:attachments email))]
+    (->> (concat text-blobs html-blobs attachment-blobs)
+         (filter #(some :id [%])) ;; only keep entries with blobId
+         (map #(select-keys % [:role :id :type]))
+         (into []))))
+
+(defn extract-email-body
+  [email]
+  {:text (get-in email [:bodyValues "text" :value])
+   :html (get-in email [:bodyValues "html" :value])})
+
+(defn build-draft-email
+  [{:keys [text html]} from-address to-address drafts-id subject]
+  {:from [{:email from-address}]
+   :to [{:email to-address}]
+   :mailboxIds {drafts-id true}
+   :subject subject
+   :textBody (when text [{:partId "text"}])
+   :htmlBody (when html [{:partId "html"}])
+   :bodyValues (cond-> {}
+                       text (assoc "text" {:value text :charset "utf-8"})
+                       html (assoc "html" {:value html :charset "utf-8"}))})
 
 (defn create-draft-email
-  [session drafts-id sanitized-email-object from-address to-address]
+  [session email-object]
   (let [account-id (get-account-id session)
         draft-id "draft_message"
-        email-object (-> sanitized-email-object
-                         (assoc :mailboxIds {drafts-id true})
-                         (assoc :from [{:email from-address}])
-                         (assoc :to [{:email to-address}]))
         method-calls [["Email/set"
                        {:accountId account-id
                         :create {draft-id email-object}}
@@ -461,21 +494,14 @@
         method-responses (:methodResponses body)
         email-set-response (first (filter #(= "Email/set" (first %)) method-responses))
         created-map (get-in email-set-response [1 :created])
-        not-created-map (get-in email-set-response [1 :notCreated])
         real-email-id (get-in created-map [(keyword draft-id) :id])]
-    (pprint response)
     (if real-email-id
-      {:error false
-       :error-message nil
+      {:success true
+       :error false
        :result real-email-id}
-      ;; handle errors
-      (let [error-details (if not-created-map
-                            (let [err-info (get not-created-map (keyword draft-id))]
-                              (str "Invalid properties: " (:properties err-info)))
-                            "Unknown error during draft creation")]
-        {:error true
-         :error-message error-details
-         :result body}))))
+      {:success false
+       :error true
+       :error-message (get-in email-set-response [1 :notCreated (keyword draft-id) :description])})))
 
 ;; Step 2: Update draft email to add attachments referencing existing blobIds
 
@@ -549,14 +575,24 @@
   (move-email-to-processed session mailbox-data email-id)
   (def email (fetch-email-by-id session email-id))
   (pprint email)
-  (def sanitized-email (sanitize-email-for-create email))
-  (def create-draft-email-response (create-draft-email
-                                     session
-                                     drafts-id
-                                     sanitized-email
-                                     "attachify.com"
-                                     "riwepo.work@gmail.com"))
-  (pprint create-draft-email-response)
+  (def blobs-to-download (get-blobs-to-download email))
+  (pprint blobs-to-download)
+  (def text-body-blob (download-blob session (first blobs-to-download) "textBody"))
+  (pprint text-body-blob)
+  (def html-body-blob (download-blob session (second blobs-to-download) "htmlBody"))
+  (pprint html-body-blob)
+  (def email-body (extract-email-body email))
+  (pprint email-body)
+  (def draft-email (build-draft-email
+                     email-body
+                     "attachify.com"
+                     "riwepo.work@gmail.com"
+                     drafts-id
+                     (:subject email)))
+  (def create-draft-email-result (create-draft-email
+                                   session
+                                   draft-email))
+  (pprint create-draft-email-result)
 
   nil)
 
