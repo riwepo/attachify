@@ -103,6 +103,13 @@
             (:id mbox)))
         (:list mailbox-data)))
 
+(defn get-sent-id
+  [mailbox-data]
+  (some (fn [mbox]
+          (when (= (:role mbox) "sent")
+            (:id mbox)))
+        (:list mailbox-data)))
+
 (defn get-processed-id
   [mailbox-data]
   (some (fn [mbox]
@@ -320,7 +327,7 @@
                  "Content-Type"  "application/json; charset=utf-8"}
         account-id (get-account-id session)
         drafts-id (get-drafts-id mailbox-data)
-        trash-id (get-trash-id mailbox-data)
+        sent-id (get-sent-id mailbox-data)
         identity-id send-identity
         draft-id "draft_message"
         submission-id "submission_id"
@@ -329,7 +336,6 @@
          :to [{:email to-address}]
          :subject "My Sent Email Subject"
          :mailboxIds {drafts-id true}
-         :keywords {"$draft" true}
          :textBody [{:partId "body"
                      :type "text/plain"}]
          :bodyValues {"body" {:charset "utf-8"
@@ -371,7 +377,8 @@
                                  :methodCalls [["Email/set"
                                                 {:accountId account-id
                                                  :update {real-email-id
-                                                          {:mailboxIds {trash-id true}}}}
+                                                          {:mailboxIds {sent-id true}}}}
+
                                                 "2"]]}
             response-step2 (http/post (get-api-url session)
                                       {:headers headers
