@@ -1,0 +1,5 @@
+
+
+modify existing email to move attachments away from inline
+send the new email
+get the destination address
