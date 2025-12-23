@@ -96,6 +96,13 @@
             (:id mbox)))
         (:list mailbox-data)))
 
+(defn get-trash-id
+  [mailbox-data]
+  (some (fn [mbox]
+          (when (= (:role mbox) "trash")
+            (:id mbox)))
+        (:list mailbox-data)))
+
 (defn get-processed-id
   [mailbox-data]
   (some (fn [mbox]
@@ -313,6 +320,7 @@
                  "Content-Type"  "application/json; charset=utf-8"}
         account-id (get-account-id session)
         drafts-id (get-drafts-id mailbox-data)
+        trash-id (get-trash-id mailbox-data)
         identity-id send-identity
         draft-id "draft_message"
         submission-id "submission_id"
@@ -329,7 +337,8 @@
         email-submission
         {:emailId (str "#" draft-id) ;; Reference draft by client creation id with #
          :identityId identity-id}
-        method-calls
+        ;; Step 1: Create draft and send email
+        method-calls-step1
         [["Email/set"
           {:accountId account-id
            :create {draft-id email-object}}
@@ -337,18 +346,42 @@
          ["EmailSubmission/set"
           {:accountId account-id
            :create {submission-id email-submission}}
-           ;:onSuccessDestroyEmail [(str "#" draft-id)]}
           "1"]]
-        request-body {:using ["urn:ietf:params:jmap:core"
-                              "urn:ietf:params:jmap:mail"
-                              "urn:ietf:params:jmap:submission"]
-                      :methodCalls method-calls}
-        response (http/post (get-api-url session)
-                            {:headers headers
-                             :body (json/encode request-body)
-                             :as :auto})]
-    (println "Create and send response:" (:body response))
-    response))
+        request-body-step1 {:using       ["urn:ietf:params:jmap:core"
+                                          "urn:ietf:params:jmap:mail"
+                                          "urn:ietf:params:jmap:submission"]
+                            :methodCalls method-calls-step1}
+        response-step1 (http/post (get-api-url session)
+                                  {:headers headers
+                                   :body (json/encode request-body-step1)
+                                   :as :auto})
+        ;; Extract real email id from response
+        create-body (:body response-step1)
+        method-responses (:methodResponses create-body)
+        email-set-response (first (filter #(= "Email/set" (first %)) method-responses))
+        created-map (get-in email-set-response [1 :created])
+        real-email-id (get-in created-map [(keyword draft-id) :id])]
+    (if (nil? real-email-id)
+      (do
+        (println "Failed to get real email id from create response:" create-body)
+        response-step1)
+      (let [;; Step 2: Move email from Drafts to Trash
+            update-request-body {:using       ["urn:ietf:params:jmap:core"
+                                               "urn:ietf:params:jmap:mail"]
+                                 :methodCalls [["Email/set"
+                                                {:accountId account-id
+                                                 :update {real-email-id
+                                                          {:mailboxIds {trash-id true}}}}
+                                                "2"]]}
+            response-step2 (http/post (get-api-url session)
+                                      {:headers headers
+                                       :body (json/encode update-request-body)
+                                       :as :auto})]
+        (println "Move draft to trash response:" (:body response-step2))
+        response-step2))))
+
+
+
 
 (comment
   (defn load-config
@@ -367,6 +400,10 @@
   (pprint mailbox-data)
   (def inbox-id (get-inbox-id mailbox-data))
   (println inbox-id)
+  (def drafts-id (get-drafts-id mailbox-data))
+  (println drafts-id)
+  (def trash-id (get-trash-id mailbox-data))
+  (println trash-id)
   (def processed-id (get-processed-id mailbox-data))
   (println processed-id)
   (def inbox-email-ids (fetch-email-ids session inbox-id))
