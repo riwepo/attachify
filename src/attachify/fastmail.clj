@@ -416,30 +416,33 @@
         (println "Move draft to sent mailbox response:" (:body response-step2))
         response-step2))))
 
-(defn remove-blobid-recursive
+(def forbidden-nested-keys [:size :charset :partId :blobId])
+
+(defn remove-forbidden-nested-keys
   [data]
   (cond
     (map? data) (into {}
                       (for [[k v] data
-                            :when (not= k :blobId)]
-                        [k (remove-blobid-recursive v)]))
-    (sequential? data) (mapv remove-blobid-recursive data)
+                            :when (not (some #{k} forbidden-nested-keys))]
+                        [k (remove-forbidden-nested-keys v)]))
+    (sequential? data) (mapv remove-forbidden-nested-keys data)
     :else data))
+
+(def forbidden-top-level [:id :size :preview :threadId :blobId :hasAttachment])
 
 (defn sanitize-email-for-create
   [email]
-  (let [forbidden-top-level [:id :size :preview :threadId :blobId :hasAttachment]
-        email-no-top-level (apply dissoc email forbidden-top-level)
-        email-no-blobid (remove-blobid-recursive email-no-top-level)
-        ;; Optionally remove :isInline to convert inline attachments to normal
-        updated-attachments (mapv #(dissoc % :isInline) (:attachments email-no-blobid))]
-    (assoc email-no-blobid :attachments updated-attachments)))
+  (let [email-no-top-level (apply dissoc email forbidden-top-level)
+        email-cleaned (remove-forbidden-nested-keys email-no-top-level)
+        ;; Remove :isInline to convert inline attachments to normal attachments
+        updated-attachments (mapv #(dissoc % :isInline) (:attachments email-cleaned))]
+    (assoc email-cleaned :attachments updated-attachments)))
 
 (defn create-draft-email
-  [session email-object-without-attachments drafts-id from-address to-address]
+  [session drafts-id sanitized-email-object from-address to-address]
   (let [account-id (get-account-id session)
         draft-id "draft_message"
-        email-object (-> email-object-without-attachments
+        email-object (-> sanitized-email-object
                          (assoc :mailboxIds {drafts-id true})
                          (assoc :from [{:email from-address}])
                          (assoc :to [{:email to-address}]))
@@ -454,10 +457,25 @@
                                        "Content-Type" "application/json; charset=utf-8"}
                              :body (json/encode request-body)
                              :as :auto})
-        created-map (get-in (:body response) [:methodResponses 0 1 :created])
-        real-email-id (get-in created-map [:draft_message :id])]
+        body (:body response)
+        method-responses (:methodResponses body)
+        email-set-response (first (filter #(= "Email/set" (first %)) method-responses))
+        created-map (get-in email-set-response [1 :created])
+        not-created-map (get-in email-set-response [1 :notCreated])
+        real-email-id (get-in created-map [(keyword draft-id) :id])]
     (pprint response)
-    real-email-id))
+    (if real-email-id
+      {:error false
+       :error-message nil
+       :result real-email-id}
+      ;; handle errors
+      (let [error-details (if not-created-map
+                            (let [err-info (get not-created-map (keyword draft-id))]
+                              (str "Invalid properties: " (:properties err-info)))
+                            "Unknown error during draft creation")]
+        {:error true
+         :error-message error-details
+         :result body}))))
 
 ;; Step 2: Update draft email to add attachments referencing existing blobIds
 
@@ -534,8 +552,8 @@
   (def sanitized-email (sanitize-email-for-create email))
   (def create-draft-email-response (create-draft-email
                                      session
-                                     sanitized-email
                                      drafts-id
+                                     sanitized-email
                                      "attachify.com"
                                      "riwepo.work@gmail.com"))
   (pprint create-draft-email-response)
