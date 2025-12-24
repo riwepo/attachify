@@ -85,38 +85,17 @@
         mailbox-data (second method-response)]
     mailbox-data))
 
-(defn get-inbox-id
-  [mailbox-data]
+(defn get-mailbox-id-by-name
+  [mailbox-data mailbox-name]
   (some (fn [mbox]
-          (when (= (:role mbox) "inbox")
+          (when (= (:name mbox) mailbox-name)
             (:id mbox)))
         (:list mailbox-data)))
 
-(defn get-drafts-id
-  [mailbox-data]
+(defn get-mailbox-id-by-role
+  [mailbox-data mailbox-role]
   (some (fn [mbox]
-          (when (= (:role mbox) "drafts")
-            (:id mbox)))
-        (:list mailbox-data)))
-
-(defn get-trash-id
-  [mailbox-data]
-  (some (fn [mbox]
-          (when (= (:role mbox) "trash")
-            (:id mbox)))
-        (:list mailbox-data)))
-
-(defn get-sent-id
-  [mailbox-data]
-  (some (fn [mbox]
-          (when (= (:role mbox) "sent")
-            (:id mbox)))
-        (:list mailbox-data)))
-
-(defn get-processed-id
-  [mailbox-data]
-  (some (fn [mbox]
-          (when (= (:name mbox) "Processed")
+          (when (= (:role mbox) mailbox-role)
             (:id mbox)))
         (:list mailbox-data)))
 
@@ -191,7 +170,7 @@
 
 (defn move-email-to-processed
   [session mailbox-data email-id]
-  (let [processed-id (get-processed-id mailbox-data)
+  (let [processed-id (get-mailbox-id-by-name mailbox-data "Processed")
         headers {"Authorization" (str "Bearer " (:api-token session))
                  "Content-Type"  "application/json; charset=utf-8"}
         set-msg-payload {:using ["urn:ietf:params:jmap:core" "urn:ietf:params:jmap:mail"]
@@ -291,7 +270,7 @@
   [config]
   (let [session (fetch-session config)
         mailbox-data (fetch-mailbox-data session)
-        inbox-id (get-inbox-id mailbox-data)
+        inbox-id (get-mailbox-id-by-role mailbox-data "inbox")
         email-ids (fetch-email-ids session inbox-id)
         email-id (second email-ids)
         email (fetch-email-by-id session email-id)
@@ -358,8 +337,8 @@
   (let [headers {"Authorization" (str "Bearer " (:api-token session))
                  "Content-Type"  "application/json; charset=utf-8"}
         account-id (get-account-id session)
-        drafts-id (get-drafts-id mailbox-data)
-        sent-id (get-sent-id mailbox-data)
+        drafts-id (get-mailbox-id-by-role mailbox-data "drafts")
+        sent-id (get-mailbox-id-by-role mailbox-data "sent")
         identity-id send-identity
         draft-id "draft_message"
         submission-id "submission_id"
@@ -424,8 +403,8 @@
   (let [headers {"Authorization" (str "Bearer " (:api-token session))
                  "Content-Type"  "application/json; charset=utf-8"}
         account-id (get-account-id session)
-        drafts-id (get-drafts-id mailbox-data)
-        sent-id (get-sent-id mailbox-data)
+        drafts-id (get-mailbox-id-by-role mailbox-data "drafts")
+        sent-id (get-mailbox-id-by-role mailbox-data "sent")
         identity-id send-identity
         draft-id "draft_message"
         submission-id "submission_id"
@@ -679,13 +658,13 @@
   (println send-identity)
   (def mailbox-data (fetch-mailbox-data session))
   (pprint mailbox-data)
-  (def inbox-id (get-inbox-id mailbox-data))
+  (def inbox-id (get-mailbox-id-by-role mailbox-data "inbox"))
   (println inbox-id)
-  (def drafts-id (get-drafts-id mailbox-data))
+  (def drafts-id (get-mailbox-id-by-role mailbox-data "drafts"))
   (println drafts-id)
-  (def trash-id (get-trash-id mailbox-data))
+  (def trash-id (get-mailbox-id-by-role mailbox-data "trash"))
   (println trash-id)
-  (def processed-id (get-processed-id mailbox-data))
+  (def processed-id (get-mailbox-id-by-name mailbox-data "Processed"))
   (println processed-id)
   (def inbox-email-ids (fetch-email-ids session inbox-id))
   (println inbox-email-ids)
