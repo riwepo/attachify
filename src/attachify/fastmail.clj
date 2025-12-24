@@ -267,7 +267,7 @@
                                           :throw-exceptions false})
           status (:status response)
           content-type (some-> (get-in response [:headers "Content-Type"])
-                               clojure.string/lower-case)
+                               str/lower-case)
           body (if (and content-type (str/includes? content-type "application/json"))
                  (json/parse-string (:body response) true)
                  nil)]
@@ -559,26 +559,28 @@
 (defn upload-all-attachments
   [session blobs]
   (loop [remaining blobs
-         updated-blobs []]
+         results []]
     (if (empty? remaining)
       {:success true
        :error false
        :error-message nil
-       :result updated-blobs}
+       :result results}
       (let [blob (first remaining)]
         (if (= (:role blob) :attachment)
           (let [upload-result (upload-blob session blob)]
             (if (:error upload-result)
-              ;; Upload error, return immediately with error info and nil result
               {:success false
                :error true
                :error-message (:error-message upload-result)
                :result nil}
-              ;; Upload succeeded, assoc new blobId and continue
               (recur (rest remaining)
-                     (conj updated-blobs (assoc blob :uploadedBlobId (:value upload-result))))))
-          ;; Not an attachment, keep blob as is
-          (recur (rest remaining) (conj updated-blobs blob)))))))
+                     (conj results {:role (:role blob)
+                                    :blobId {:old (:blobId blob)
+                                             :new (:value upload-result)}
+                                    :type (:type blob)}))))
+          ;; Not an attachment, skip it
+          (recur (rest remaining) results))))))
+
 
 
 
