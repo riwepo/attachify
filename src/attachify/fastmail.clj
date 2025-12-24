@@ -5,8 +5,7 @@
             [clj-http.client :as http]
             [cheshire.core :as json])
   (:import [java.net URLEncoder]
-           [java.nio.charset StandardCharsets]
-           [java.util UUID]))
+           [java.nio.charset StandardCharsets]))
 
 (defn get-email-auth-url
   [config]
@@ -124,23 +123,38 @@
 
 (defn fetch-email-by-id
   [session email-id]
-  (let [headers {"Authorization" (str "Bearer " (:api-token session))
-                 "Content-Type"  "application/json; charset=utf-8"}
-        query-body {:using ["urn:ietf:params:jmap:core" "urn:ietf:params:jmap:mail"]
-                    :methodCalls
-                    [["Email/get"
-                      {:accountId (get-account-id session)
-                       :ids       [email-id]}
-                      "a"]]}
-        response (http/post (get-api-url session)
-                            {:headers headers
-                             :body    (json/encode query-body)
-                             :as      :auto})
-        body (:body response)
-        method-response (first (:methodResponses body))
-        method-response-data (second method-response)
-        emails (:list method-response-data)]
-    (first emails)))                                        ;; return the single email map
+  (try
+    (let [headers {"Authorization" (str "Bearer " (:api-token session))
+                   "Content-Type"  "application/json; charset=utf-8"}
+          query-body {:using ["urn:ietf:params:jmap:core" "urn:ietf:params:jmap:mail"]
+                      :methodCalls
+                      [["Email/get"
+                        {:accountId (get-account-id session)
+                         :ids       [email-id]}
+                        "a"]]}
+          response (http/post (get-api-url session)
+                              {:headers headers
+                               :body (json/encode query-body)
+                               :as :auto})
+          body (:body response)
+          method-responses (:methodResponses body)
+          method-response (first method-responses)
+          method-response-data (second method-response)
+          emails (:list method-response-data)
+          email (first emails)]
+      (if email
+        {:success true
+         :error false
+         :value email}
+        {:success false
+         :error true
+         :error-message (str "Email with id " email-id " not found")
+         :value nil}))
+    (catch Exception e
+      {:success false
+       :error true
+       :error-message (str "Exception fetching email by id: " (.getMessage e))
+       :value nil})))                              ;; return the single email map
 
 (defn inline-image-blobs
   [email]
@@ -168,23 +182,40 @@
     filename
     (str filename ext)))
 
-(defn move-email-to-processed
-  [session mailbox-data email-id]
-  (let [processed-id (get-mailbox-id-by-name mailbox-data "Processed")
-        headers {"Authorization" (str "Bearer " (:api-token session))
-                 "Content-Type"  "application/json; charset=utf-8"}
-        set-msg-payload {:using ["urn:ietf:params:jmap:core" "urn:ietf:params:jmap:mail"]
-                         :methodCalls
-                         [["Email/set"
-                           {:accountId (get-account-id session)
-                            :update    {email-id {:mailboxIds {processed-id true}}}}
-                           "a"]]}
-        response (http/post (get-api-url session)
-                            {:headers headers
-                             :body    (json/encode set-msg-payload)
-                             :as      :auto})]
-    (println "Move response:" (:body response))
-    response))
+(defn move-email-to-mailbox
+  [session email-id mailbox-id]
+  (try
+    (let [headers {"Authorization" (str "Bearer " (:api-token session))
+                   "Content-Type"  "application/json; charset=utf-8"}
+          set-msg-payload {:using ["urn:ietf:params:jmap:core" "urn:ietf:params:jmap:mail"]
+                           :methodCalls
+                           [["Email/set"
+                             {:accountId (get-account-id session)
+                              :update    {email-id {:mailboxIds {mailbox-id true}}}}
+                             "a"]]}
+          response (http/post (get-api-url session)
+                              {:headers headers
+                               :body    (json/encode set-msg-payload)
+                               :as      :auto})
+          body (:body response)
+          method-responses (:methodResponses body)
+          email-set-response (first (filter #(= "Email/set" (first %)) method-responses))
+          not-created (get-in email-set-response [1 :notCreated])]
+      (if (or (nil? email-set-response) (seq not-created))
+        {:success false
+         :error true
+         :error-message (str "Failed to move email " email-id " to mailbox " mailbox-id
+                             ". Details: " not-created)
+         :value false}
+        {:success true
+         :error false
+         :value true}))
+    (catch Exception e
+      {:success false
+       :error true
+       :error-message (str "Exception during move-email-to-mailbox: " (.getMessage e))
+       :value false})))
+
 
 (defn bytes->string
   [byte-array & {:keys [charset] :or {charset "UTF-8"}}]
@@ -672,7 +703,6 @@
   (println processed-email-ids)
   (def email-id (first inbox-email-ids))
   (println email-id)
-  (move-email-to-processed session mailbox-data email-id)
   (def email (fetch-email-by-id session email-id))
   (pprint email)
   (def blob-info (get-blob-info email))
