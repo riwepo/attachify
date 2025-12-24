@@ -235,12 +235,12 @@
       {:success true
        :error false
        :error-message nil
-       :result decoded-content})
+       :value decoded-content})
     (catch Exception e
       {:success false
        :error true
        :error-message (str "Failed to download or decode blob: " (.getMessage e))
-       :result nil})))
+       :value nil})))
 
 (defn fetch-first-inline-image-blob
   [config]
@@ -436,7 +436,7 @@
         (println "Move draft to sent mailbox response:" (:body response-step2))
         response-step2))))
 
-(defn get-blobs-to-download
+(defn get-blob-info
   [email]
   (let [text-blobs (map (fn [part]
                           {:role :textBody
@@ -464,16 +464,25 @@
    :html (get-in email [:bodyValues "html" :value])})
 
 (defn build-draft-email
-  [{:keys [text html]} from-address to-address drafts-id subject]
-  {:from [{:email from-address}]
-   :to [{:email to-address}]
-   :mailboxIds {drafts-id true}
-   :subject subject
-   :textBody (when text [{:partId "text"}])
-   :htmlBody (when html [{:partId "html"}])
-   :bodyValues (cond-> {}
-                       text (assoc "text" {:value text :charset "utf-8"})
-                       html (assoc "html" {:value html :charset "utf-8"}))})
+  [blobs from-address to-address drafts-id subject]
+  (let [text (some #(when (= (:role %) :textBody) (:value %)) blobs)
+        html (some #(when (= (:role %) :htmlBody) (:value %)) blobs)
+        attachments (->> blobs
+                         (filter #(= (:role %) :attachment))
+                         (map #(select-keys % [:id :type :value]))
+                         vec)]
+    {:from [{:email from-address}]
+     :to [{:email to-address}]
+     :mailboxIds {drafts-id true}
+     :subject subject
+     :textBody (when text [{:partId "text"}])
+     :htmlBody (when html [{:partId "html"}])
+     :bodyValues (cond-> {}
+                         text (assoc "text" {:value text :charset "utf-8"})
+                         html (assoc "html" {:value html :charset "utf-8"}))}))
+     ;; Attachments might require special handling depending on your API,
+     ;; here is a placeholder key for them:
+     ;:attachments attachments}))
 
 (defn create-draft-email
   [session email-object]
@@ -495,10 +504,11 @@
         email-set-response (first (filter #(= "Email/set" (first %)) method-responses))
         created-map (get-in email-set-response [1 :created])
         real-email-id (get-in created-map [(keyword draft-id) :id])]
+    (pprint body)
     (if real-email-id
       {:success true
        :error false
-       :result real-email-id}
+       :value real-email-id}
       {:success false
        :error true
        :error-message (get-in email-set-response [1 :notCreated (keyword draft-id) :description])})))
@@ -541,6 +551,35 @@
                              :as :auto})]
     response))
 
+(defn download-all-blobs
+  [session blob-info]
+  (loop [remaining blob-info
+         results []]
+    (if (empty? remaining)
+      ;; All blobs processed successfully, return vector with :value added and no error keys
+      {:success true
+       :error false
+       :error-message nil
+       :value (mapv
+                (fn [blob download]
+                  (assoc blob :value (:value download)))
+                blob-info
+                results)}
+      (let [blob (first remaining)
+            filename (str (name (:role blob))) ;; Use role name as filename base
+            download-result (download-blob session blob filename)]
+        (if (:error download-result)
+          ;; Error occurred, return immediately with error info
+          {:success false
+           :error true
+           :error-message (:error-message download-result)
+           :value nil}
+          ;; No error, accumulate download result and continue
+          (recur (rest remaining)
+                 (conj results download-result)))))))
+
+
+
 
 
 (comment
@@ -575,23 +614,21 @@
   (move-email-to-processed session mailbox-data email-id)
   (def email (fetch-email-by-id session email-id))
   (pprint email)
-  (def blobs-to-download (get-blobs-to-download email))
-  (pprint blobs-to-download)
-  (def text-body-blob (download-blob session (first blobs-to-download) "textBody"))
-  (pprint text-body-blob)
-  (def html-body-blob (download-blob session (second blobs-to-download) "htmlBody"))
-  (pprint html-body-blob)
-  (def email-body (extract-email-body email))
-  (pprint email-body)
-  (def draft-email (build-draft-email
-                     email-body
-                     "attachify.com"
-                     "riwepo.work@gmail.com"
-                     drafts-id
-                     (:subject email)))
+  (def blob-info (get-blob-info email))
+  (pprint blob-info)
+  (def download-blobs-result (download-all-blobs session blob-info))
+  (pprint download-blobs-result)
+  (def blobs (:value download-blobs-result))
+  (def draft-email-object (build-draft-email
+                            blobs
+                            "attachify.com"
+                            "riwepo.work@gmail.com"
+                            drafts-id
+                            (:subject email)))
+  (pprint draft-email-object)
   (def create-draft-email-result (create-draft-email
                                    session
-                                   draft-email))
+                                   draft-email-object))
   (pprint create-draft-email-result)
 
   nil)
