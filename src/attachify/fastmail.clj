@@ -262,12 +262,13 @@
                          (str/replace "{accountId}" (get-account-id session)))
           headers {"Authorization" (str "Bearer " (:api-token session))
                    "Content-Type" (:type blob)}
-          ;; Assuming (:value blob) contains raw bytes to upload
           response (http/post upload-url {:headers headers
                                           :body (:value blob)
                                           :throw-exceptions false})
           status (:status response)
-          body (if (= "application/json" (get-in response [:headers "Content-Type"]))
+          content-type (some-> (get-in response [:headers "Content-Type"])
+                               clojure.string/lower-case)
+          body (if (and content-type (str/includes? content-type "application/json"))
                  (json/parse-string (:body response) true)
                  nil)]
       (if (and (= status 200) (contains? body :blobId))
@@ -277,13 +278,14 @@
          :value (:blobId body)}
         {:success false
          :error true
-         :error-message (str "Upload failed with status " status " and body: " (:body response))
+         :error-message (str "Upload failed with status " status " and body: " body)
          :value nil}))
     (catch Exception e
       {:success false
        :error true
        :error-message (str "Exception during upload: " (.getMessage e))
        :value nil})))
+
 
 (defn fetch-first-inline-image-blob
   [config]
@@ -567,16 +569,17 @@
         (if (= (:role blob) :attachment)
           (let [upload-result (upload-blob session blob)]
             (if (:error upload-result)
-              ;; Upload error, return immediately with error info
+              ;; Upload error, return immediately with error info and nil result
               {:success false
                :error true
                :error-message (:error-message upload-result)
-               :result updated-blobs}
+               :result nil}
               ;; Upload succeeded, assoc new blobId and continue
               (recur (rest remaining)
                      (conj updated-blobs (assoc blob :uploadedBlobId (:value upload-result))))))
           ;; Not an attachment, keep blob as is
           (recur (rest remaining) (conj updated-blobs blob)))))))
+
 
 
 ;; Step 2: Update draft email to add attachments referencing existing blobIds
