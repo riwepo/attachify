@@ -156,17 +156,6 @@
        :error-message (str "Exception fetching email by id: " (.getMessage e))
        :value nil})))                              ;; return the single email map
 
-(defn inline-image-blobs
-  [email]
-  (->> (:attachments email)
-       (filter #(and
-                  (= "inline" (:disposition %))
-                  (str/starts-with? (:type %) "image/")))
-       (remove #(nil? (:blobId %)))
-       (map #(hash-map :id (:blobId %)
-                       :type (:type %)))
-       (into [])))
-
 (def mime->ext
   {"image/jpeg"      ".jpg"
    "image/png"       ".png"
@@ -297,28 +286,6 @@
        :value nil})))
 
 
-(defn fetch-first-inline-image-blob
-  [config]
-  (let [session (fetch-session config)
-        mailbox-data (fetch-mailbox-data session)
-        inbox-id (get-mailbox-id-by-role mailbox-data "inbox")
-        email-ids (fetch-email-ids session inbox-id)
-        email-id (second email-ids)
-        email (fetch-email-by-id session email-id)
-        blobs (inline-image-blobs email)
-        blob (first blobs)]
-    (println "Session:")
-    (pprint session)
-    (println "Inbox ID:" inbox-id)
-    (println "Email IDs:" email-ids)
-    (println "Selected Email ID:" email-id)
-    (println "Email:" email)
-    (println "Inline Image Blobs:" blobs)
-    (println "Selected Blob:" blob)
-    {:session  session
-     :inbox-id inbox-id
-     :email-id email-id
-     :blob     blob}))
 
 
 (defn send-email
@@ -363,134 +330,6 @@
     (println "Send email response:" (:body response))
     response))
 
-(defn create-and-send-email
-  [session send-identity mailbox-data email-text from-address to-address]
-  (let [headers {"Authorization" (str "Bearer " (:api-token session))
-                 "Content-Type"  "application/json; charset=utf-8"}
-        account-id (get-account-id session)
-        drafts-id (get-mailbox-id-by-role mailbox-data "drafts")
-        sent-id (get-mailbox-id-by-role mailbox-data "sent")
-        identity-id send-identity
-        draft-id "draft_message"
-        submission-id "submission_id"
-        email-object
-        { :from [{:email from-address}]
-         :to [{:email to-address}]
-         :subject "My Sent Email Subject"
-         :mailboxIds {drafts-id true}
-         :textBody [{:partId "body"
-                     :type "text/plain"}]
-         :bodyValues {"body" {:charset "utf-8"
-                              :value email-text}}}
-        email-submission
-        {:emailId (str "#" draft-id) ;; Reference draft by client creation id with #
-         :identityId identity-id}
-        ;; Step 1: Create draft and send email
-        method-calls-step1
-        [["Email/set"
-          {:accountId account-id
-           :create {draft-id email-object}}
-          "0"]
-         ["EmailSubmission/set"
-          {:accountId account-id
-           :create {submission-id email-submission}}
-          "1"]]
-        request-body-step1 {:using       ["urn:ietf:params:jmap:core"
-                                          "urn:ietf:params:jmap:mail"
-                                          "urn:ietf:params:jmap:submission"]
-                            :methodCalls method-calls-step1}
-        response-step1 (http/post (get-api-url session)
-                                  {:headers headers
-                                   :body (json/encode request-body-step1)
-                                   :as :auto})
-        ;; Extract real email id from response
-        create-body (:body response-step1)
-        method-responses (:methodResponses create-body)
-        email-set-response (first (filter #(= "Email/set" (first %)) method-responses))
-        created-map (get-in email-set-response [1 :created])
-        real-email-id (get-in created-map [(keyword draft-id) :id])]
-    (if (nil? real-email-id)
-      (do
-        (println "Failed to get real email id from create response:" create-body)
-        response-step1)
-      (let [;; Step 2: Move email from Drafts to Trash
-            update-request-body {:using       ["urn:ietf:params:jmap:core"
-                                               "urn:ietf:params:jmap:mail"]
-                                 :methodCalls [["Email/set"
-                                                {:accountId account-id
-                                                 :update {real-email-id
-                                                          {:mailboxIds {sent-id true}}}}
-
-                                                "2"]]}
-            response-step2 (http/post (get-api-url session)
-                                      {:headers headers
-                                       :body (json/encode update-request-body)
-                                       :as :auto})]
-        (println "Move draft to trash response:" (:body response-step2))
-        response-step2))))
-
-(defn create-and-send-email2
-  [session send-identity mailbox-data email-object from-address to-address]
-  (let [headers {"Authorization" (str "Bearer " (:api-token session))
-                 "Content-Type"  "application/json; charset=utf-8"}
-        account-id (get-account-id session)
-        drafts-id (get-mailbox-id-by-role mailbox-data "drafts")
-        sent-id (get-mailbox-id-by-role mailbox-data "sent")
-        identity-id send-identity
-        draft-id "draft_message"
-        submission-id "submission_id"
-        ;; Override some fields in email-object to ensure mailbox and addresses are correct
-        email-object-updated
-        (-> email-object
-            (assoc :mailboxIds {drafts-id true})
-            (assoc :from [{:email from-address}])
-            (assoc :to [{:email to-address}]))
-        email-submission
-        {:emailId (str "#" draft-id) ;; Reference draft by client creation id with #
-         :identityId identity-id}
-        ;; Step 1: Create draft and send email
-        method-calls-step1
-        [["Email/set"
-          {:accountId account-id
-           :create {draft-id email-object-updated}}
-          "0"]
-         ["EmailSubmission/set"
-          {:accountId account-id
-           :create {submission-id email-submission}}
-          "1"]]
-        request-body-step1 {:using       ["urn:ietf:params:jmap:core"
-                                          "urn:ietf:params:jmap:mail"
-                                          "urn:ietf:params:jmap:submission"]
-                            :methodCalls method-calls-step1}
-        response-step1 (http/post (get-api-url session)
-                                  {:headers headers
-                                   :body (json/encode request-body-step1)
-                                   :as :auto})
-        ;; Extract real email id from response
-        create-body (:body response-step1)
-        method-responses (:methodResponses create-body)
-        email-set-response (first (filter #(= "Email/set" (first %)) method-responses))
-        created-map (get-in email-set-response [1 :created])
-        real-email-id (get-in created-map [(keyword draft-id) :id])]
-    (if (nil? real-email-id)
-      (do
-        (println "Failed to get real email id from create response:" create-body)
-        response-step1)
-      (let [;; Step 2: Move email from Drafts to Sent mailbox
-            update-request-body {:using       ["urn:ietf:params:jmap:core"
-                                               "urn:ietf:params:jmap:mail"]
-                                 :methodCalls [["Email/set"
-                                                {:accountId account-id
-                                                 :update {real-email-id
-                                                          {:mailboxIds {sent-id true}}}}
-                                                "2"]]}
-            response-step2 (http/post (get-api-url session)
-                                      {:headers headers
-                                       :body (json/encode update-request-body)
-                                       :as :auto})]
-        (println "Move draft to sent mailbox response:" (:body response-step2))
-        response-step2))))
-
 (defn get-blob-info
   [email]
   (let [text-blobs (map (fn [part]
@@ -512,11 +351,6 @@
          (filter #(some :blobId [%])) ;; only keep entries with blobId
          (map #(select-keys % [:role :blobId :type]))
          (into []))))
-
-(defn extract-email-body
-  [email]
-  {:text (get-in email [:bodyValues "text" :value])
-   :html (get-in email [:bodyValues "html" :value])})
 
 (defn build-draft-email
   [blobs attachment-info from-address to-address drafts-id subject]
@@ -545,7 +379,6 @@
                          text (assoc "text" {:value text :charset "utf-8"})
                          html (assoc "html" {:value html :charset "utf-8"}))
      :attachments attachments}))
-
 
 
 (defn create-draft-email
@@ -605,25 +438,7 @@
 
 
 
-;; Step 2: Update draft email to add attachments referencing existing blobIds
 
-(defn update-draft-attachments
-  [session draft-email-id attachments]
-  (let [account-id (get-account-id session)
-        method-calls [["Email/set"
-                       {:accountId account-id
-                        :update {draft-email-id {:attachments attachments}}}
-                       "0"]]
-        request-body {:using ["urn:ietf:params:jmap:core" "urn:ietf:params:jmap:mail"]
-                      :methodCalls method-calls}
-        response (http/post (get-api-url session)
-                            {:headers {"Authorization" (str "Bearer " (:api-token session))
-                                       "Content-Type" "application/json; charset=utf-8"}
-                             :body (json/encode request-body)
-                             :as :auto})]
-    response))
-
-;; Step 3: Submit email
 
 (defn submit-email
   [session draft-email-id identity-id]
