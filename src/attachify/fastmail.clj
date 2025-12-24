@@ -512,7 +512,6 @@
   [blobs attachment-info from-address to-address drafts-id subject]
   (let [text (some #(when (= (:role %) :textBody) (:value %)) blobs)
         html (some #(when (= (:role %) :htmlBody) (:value %)) blobs)
-        ;; Build a map old-blob-id -> new-blob-id for quick lookup
         id-map (into {}
                      (map (fn [{:keys [blobId]}]
                             [(:old blobId) (:new blobId)])
@@ -522,9 +521,9 @@
                          (map (fn [att]
                                 (let [old-id (:blobId att)
                                       new-id (get id-map old-id)]
-                                  ;; Use :blobId key with new blob id here
                                   {:blobId new-id
-                                   :type (:type att)})))
+                                   :type (:type att)
+                                   :disposition "attachment"})))
                          vec)]
     {:from [{:email from-address}]
      :to [{:email to-address}]
@@ -536,6 +535,7 @@
                          text (assoc "text" {:value text :charset "utf-8"})
                          html (assoc "html" {:value html :charset "utf-8"}))
      :attachments attachments}))
+
 
 
 (defn create-draft-email
