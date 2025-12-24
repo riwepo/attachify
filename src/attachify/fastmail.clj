@@ -33,6 +33,9 @@
 (defn get-download-url [session]
   (:downloadUrl session))
 
+(defn get-upload-url [session]
+  (:uploadUrl session))
+
 (defn get-api-url [session]
   (:apiUrl session))
 
@@ -227,7 +230,7 @@
           encoded-type (url-encode (:type blob))
           download-url (-> (get-download-url session)
                            (str/replace "{accountId}" (get-account-id session))
-                           (str/replace "{blobId}" (:id blob))
+                           (str/replace "{blobId}" (:blobId blob))
                            (str/replace "{name}" encoded-filename)
                            (str/replace "{type}" encoded-type))
           headers {"Authorization" (str "Bearer " (:api-token session))}
@@ -250,6 +253,36 @@
       {:success false
        :error true
        :error-message (str "Failed to download or decode blob: " (.getMessage e))
+       :value nil})))
+
+(defn upload-blob
+  [session blob]
+  (try
+    (let [upload-url (-> (get-upload-url session)
+                         (str/replace "{accountId}" (get-account-id session)))
+          headers {"Authorization" (str "Bearer " (:api-token session))
+                   "Content-Type" (:type blob)}
+          ;; Assuming (:value blob) contains raw bytes to upload
+          response (http/post upload-url {:headers headers
+                                          :body (:value blob)
+                                          :throw-exceptions false})
+          status (:status response)
+          body (if (= "application/json" (get-in response [:headers "Content-Type"]))
+                 (json/parse-string (:body response) true)
+                 nil)]
+      (if (and (= status 200) (contains? body :blobId))
+        {:success true
+         :error false
+         :error-message nil
+         :value (:blobId body)}
+        {:success false
+         :error true
+         :error-message (str "Upload failed with status " status " and body: " (:body response))
+         :value nil}))
+    (catch Exception e
+      {:success false
+       :error true
+       :error-message (str "Exception during upload: " (.getMessage e))
        :value nil})))
 
 (defn fetch-first-inline-image-blob
@@ -450,22 +483,22 @@
   [email]
   (let [text-blobs (map (fn [part]
                           {:role :textBody
-                           :id (:blobId part)
+                           :blobId (:blobId part)
                            :type (:type part)})
                         (:textBody email))
         html-blobs (map (fn [part]
                           {:role :htmlBody
-                           :id (:blobId part)
+                           :blobId (:blobId part)
                            :type (:type part)})
                         (:htmlBody email))
         attachment-blobs (map (fn [att]
                                 {:role :attachment
-                                 :id (:blobId att)
+                                 :blobId (:blobId att)
                                  :type (:type att)})
                               (:attachments email))]
     (->> (concat text-blobs html-blobs attachment-blobs)
-         (filter #(some :id [%])) ;; only keep entries with blobId
-         (map #(select-keys % [:role :id :type]))
+         (filter #(some :blobId [%])) ;; only keep entries with blobId
+         (map #(select-keys % [:role :blobId :type]))
          (into []))))
 
 (defn extract-email-body
@@ -489,10 +522,8 @@
      :htmlBody (when html [{:partId "html"}])
      :bodyValues (cond-> {}
                          text (assoc "text" {:value text :charset "utf-8"})
-                         html (assoc "html" {:value html :charset "utf-8"}))}))
-     ;; Attachments might require special handling depending on your API,
-     ;; here is a placeholder key for them:
-     ;:attachments attachments}))
+                         html (assoc "html" {:value html :charset "utf-8"}))
+     :attachments attachments}))
 
 (defn create-draft-email
   [session email-object]
@@ -522,6 +553,31 @@
       {:success false
        :error true
        :error-message (get-in email-set-response [1 :notCreated (keyword draft-id) :description])})))
+
+(defn upload-all-attachments
+  [session blobs]
+  (loop [remaining blobs
+         updated-blobs []]
+    (if (empty? remaining)
+      {:success true
+       :error false
+       :error-message nil
+       :result updated-blobs}
+      (let [blob (first remaining)]
+        (if (= (:role blob) :attachment)
+          (let [upload-result (upload-blob session blob)]
+            (if (:error upload-result)
+              ;; Upload error, return immediately with error info
+              {:success false
+               :error true
+               :error-message (:error-message upload-result)
+               :result updated-blobs}
+              ;; Upload succeeded, assoc new blobId and continue
+              (recur (rest remaining)
+                     (conj updated-blobs (assoc blob :uploadedBlobId (:value upload-result))))))
+          ;; Not an attachment, keep blob as is
+          (recur (rest remaining) (conj updated-blobs blob)))))))
+
 
 ;; Step 2: Update draft email to add attachments referencing existing blobIds
 
@@ -630,6 +686,8 @@
   (pprint download-blobs-result)
   (def blobs (:value download-blobs-result))
   (pprint blobs)
+  (def upload-all-attachments-result (upload-all-attachments session blobs))
+  (pprint upload-all-attachments-result)
   (def draft-email-object (build-draft-email
                             blobs
                             "attachify.com"
