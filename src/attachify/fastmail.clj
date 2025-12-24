@@ -208,6 +208,15 @@
   [byte-array & {:keys [charset] :or {charset "UTF-8"}}]
   (String. byte-array charset))
 
+(defn strip-bom [s]
+  (if (.startsWith s "\uFEFF")
+    (subs s 1)
+    s))
+
+(defn replace-nbsp
+  [s]
+  (str/replace s #"\u00A0" " "))
+
 (defn download-blob
   [session blob filename]
   (try
@@ -229,7 +238,8 @@
                                        (= (:type blob) "application/json")
                                        (= (:type blob) "application/xml")))
                             ;; decode text-like content as string
-                            (bytes->string bytes :charset "UTF-8")
+                            (-> (bytes->string bytes :charset "UTF-8")
+                                replace-nbsp)
                             ;; else keep raw bytes (e.g. images, pdfs)
                             bytes)]
       {:success true
@@ -619,6 +629,7 @@
   (def download-blobs-result (download-all-blobs session blob-info))
   (pprint download-blobs-result)
   (def blobs (:value download-blobs-result))
+  (pprint blobs)
   (def draft-email-object (build-draft-email
                             blobs
                             "attachify.com"
