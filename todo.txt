@@ -1,5 +1,9 @@
 
 
-modify existing email to move attachments away from inline
+we uploaded all attachments
+but the result of that function is incorrect
+need to update all og the blobIds with new ones
+
 send the new email
+
 get the destination address
