@@ -79,16 +79,33 @@
             body (:body response)]
         (if (and (>= status 200) (< status 300))
           (let [method-responses (:methodResponses body)
-                identity-get-response (first (filter #(= "Identity/get" (first %)) method-responses))
-                identity-info (get-in identity-get-response [1 :list])]
-            (if (and identity-get-response (sequential? identity-info))
-              {:success true
-               :error false
-               :error-message nil
-               :value identity-info}
+                error-response (first (filter #(= "error" (first %)) method-responses))
+                identity-get-response (first (filter #(= "Identity/get" (first %)) method-responses))]
+            (cond
+              error-response
+              (let [{:keys [arguments type]} (second error-response)
+                    error-msg (str "API error: " type ", arguments: " arguments)]
+                {:success false
+                 :error true
+                 :error-message error-msg
+                 :value nil})
+
+              identity-get-response
+              (let [identity-info (get-in identity-get-response [1 :list])]
+                (if (sequential? identity-info)
+                  {:success true
+                   :error false
+                   :error-message nil
+                   :value identity-info}
+                  {:success false
+                   :error true
+                   :error-message "Identity/get response malformed"
+                   :value nil}))
+
+              :else
               {:success false
                :error true
-               :error-message "Identity/get response missing or malformed"
+               :error-message "Neither Identity/get nor error response found"
                :value nil}))
           {:success false
            :error true
@@ -99,6 +116,7 @@
          :error true
          :error-message (str "Error fetching identity info: " (.getMessage e))
          :value nil}))))
+
 
 (defn get-identity-id
   [identity-info]
@@ -112,7 +130,7 @@
                     :methodCalls
                     [["Mailbox/get"
                       {:accountId (get-account-id session)
-                       :ids       nil}                      ;; nil means all mailboxes
+                       :ids       nil}
                       "a"]]}]
     (try
       (let [response (http/post (get-api-url session)
@@ -123,16 +141,28 @@
             response-body (:body response)]
         (if (and (>= status 200) (< status 300))
           (let [method-responses (:methodResponses response-body)
-                mailbox-get-response (first (filter #(= "Mailbox/get" (first %)) method-responses))
-                mailbox-info (:list (second mailbox-get-response))]
-            (if mailbox-get-response
-              {:success true
-               :error false
-               :error-message nil
-               :value mailbox-info}
+                error-response (first (filter #(= "error" (first %)) method-responses))
+                mailbox-get-response (first (filter #(= "Mailbox/get" (first %)) method-responses))]
+            (cond
+              error-response
+              (let [{:keys [arguments type]} (second error-response)
+                    error-msg (str "API error: " type ", arguments: " arguments)]
+                {:success false
+                 :error true
+                 :error-message error-msg
+                 :value nil})
+
+              mailbox-get-response
+              (let [mailbox-info (:list (second mailbox-get-response))]
+                {:success true
+                 :error false
+                 :error-message nil
+                 :value mailbox-info})
+
+              :else
               {:success false
                :error true
-               :error-message "Mailbox/get response missing"
+               :error-message "Neither Mailbox/get nor error response found"
                :value nil}))
           {:success false
            :error true
@@ -143,6 +173,7 @@
          :error true
          :error-message (str "Error fetching mailbox info: " (.getMessage e))
          :value nil}))))
+
 
 
 (defn get-mailbox-id-by-name
@@ -228,23 +259,41 @@
                                :as :auto})
           body (:body response)
           method-responses (:methodResponses body)
-          method-response (first method-responses)
-          method-response-data (second method-response)
-          emails (:list method-response-data)
-          email (first emails)]
-      (if email
-        {:success true
-         :error false
-         :value email}
+          error-response (first (filter #(= "error" (first %)) method-responses))
+          email-get-response (first (filter #(= "Email/get" (first %)) method-responses))]
+      (cond
+        error-response
+        (let [{:keys [arguments type]} (second error-response)
+              error-msg (str "API error: " type ", arguments: " arguments)]
+          {:success false
+           :error true
+           :error-message error-msg
+           :value nil})
+
+        email-get-response
+        (let [method-response-data (second email-get-response)
+              emails (:list method-response-data)
+              email (first emails)]
+          (if email
+            {:success true
+             :error false
+             :value email}
+            {:success false
+             :error true
+             :error-message (str "Email with id " email-id " not found")
+             :value nil}))
+
+        :else
         {:success false
          :error true
-         :error-message (str "Email with id " email-id " not found")
+         :error-message "Neither Email/get nor error response found"
          :value nil}))
     (catch Exception e
       {:success false
        :error true
        :error-message (str "Exception fetching email by id: " (.getMessage e))
-       :value nil})))                              ;; return the single email map
+       :value nil})))
+                   ;; return the single email map
 
 (def mime->ext
   {"image/jpeg"      ".jpg"
@@ -278,14 +327,25 @@
                                :as      :auto})
           body (:body response)
           method-responses (:methodResponses body)
+          error-response (first (filter #(= "error" (first %)) method-responses))
           email-set-response (first (filter #(= "Email/set" (first %)) method-responses))
           not-created (get-in email-set-response [1 :notCreated])]
-      (if (or (nil? email-set-response) (seq not-created))
+      (cond
+        error-response
+        (let [{:keys [arguments type]} (second error-response)
+              error-msg (str "API error: " type ", arguments: " arguments)]
+          {:success false
+           :error true
+           :error-message error-msg
+           :value false})
+
+        (or (nil? email-set-response) (seq not-created))
         {:success false
          :error true
          :error-message (str "Failed to move email " email-id " to mailbox " mailbox-id
                              ". Details: " not-created)
          :value false}
+        :else
         {:success true
          :error false
          :value true}))
@@ -294,6 +354,7 @@
        :error true
        :error-message (str "Exception during move-email-to-mailbox: " (.getMessage e))
        :value false})))
+
 
 
 (defn bytes->string
@@ -428,31 +489,51 @@
 
 (defn create-draft-email
   [session email-object]
-  (let [account-id (get-account-id session)
-        draft-id "draft_message"
-        method-calls [["Email/set"
-                       {:accountId account-id
-                        :create {draft-id email-object}}
-                       "0"]]
-        request-body {:using ["urn:ietf:params:jmap:core" "urn:ietf:params:jmap:mail"]
-                      :methodCalls method-calls}
-        response (http/post (get-api-url session)
-                            {:headers {"Authorization" (str "Bearer " (:api-token session))
-                                       "Content-Type" "application/json; charset=utf-8"}
-                             :body (json/encode request-body)
-                             :as :auto})
-        body (:body response)
-        method-responses (:methodResponses body)
-        email-set-response (first (filter #(= "Email/set" (first %)) method-responses))
-        created-map (get-in email-set-response [1 :created])
-        real-email-id (get-in created-map [(keyword draft-id) :id])]
-    (if real-email-id
-      {:success true
-       :error false
-       :value real-email-id}
+  (try
+    (let [account-id (get-account-id session)
+          draft-id "draft_message"
+          method-calls [["Email/set"
+                         {:accountId account-id
+                          :create {draft-id email-object}}
+                         "0"]]
+          request-body {:using ["urn:ietf:params:jmap:core" "urn:ietf:params:jmap:mail"]
+                        :methodCalls method-calls}
+          response (http/post (get-api-url session)
+                              {:headers {"Authorization" (str "Bearer " (:api-token session))
+                                         "Content-Type" "application/json; charset=utf-8"}
+                               :body (json/encode request-body)
+                               :as :auto})
+          body (:body response)
+          method-responses (:methodResponses body)
+          error-response (first (filter #(= "error" (first %)) method-responses))
+          email-set-response (first (filter #(= "Email/set" (first %)) method-responses))
+          created-map (get-in email-set-response [1 :created])
+          real-email-id (get-in created-map [(keyword draft-id) :id])]
+      (cond
+        error-response
+        (let [{:keys [arguments type]} (second error-response)
+              error-msg (str "API error: " type ", arguments: " arguments)]
+          {:success false
+           :error true
+           :error-message error-msg
+           :value nil})
+
+        real-email-id
+        {:success true
+         :error false
+         :value real-email-id}
+
+        :else
+        {:success false
+         :error true
+         :error-message (get-in email-set-response [1 :notCreated (keyword draft-id) :description])
+         :value nil}))
+    (catch Exception e
       {:success false
        :error true
-       :error-message (get-in email-set-response [1 :notCreated (keyword draft-id) :description])})))
+       :error-message (str "Exception creating draft email: " (.getMessage e))
+       :value nil})))
+
 
 (defn upload-attachments
   [session blobs]
@@ -497,12 +578,26 @@
                                 {:headers headers
                                  :body    (json/encode request-body)
                                  :as      :auto})
-            status (:status response)]
-        (if (and (>= status 200) (< status 300))
+            status (:status response)
+            body (:body response)
+            method-responses (:methodResponses body)
+            error-response (first (filter #(= "error" (first %)) method-responses))]
+        (cond
+          error-response
+          (let [{:keys [arguments type]} (second error-response)
+                error-msg (str "API error: " type ", arguments: " arguments)]
+            {:success false
+             :error true
+             :error-message error-msg
+             :value nil})
+
+          (and (>= status 200) (< status 300))
           {:success true
            :error false
            :error-message nil
            :value true}
+
+          :else
           {:success false
            :error true
            :error-message (str "Failed to submit email, status: " status)
@@ -512,6 +607,7 @@
          :error true
          :error-message (str "Error submitting email: " (.getMessage e))
          :value nil}))))
+
 
 
 (defn download-blobs
