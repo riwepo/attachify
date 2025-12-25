@@ -292,7 +292,9 @@
        :error true
        :error-message (str "Exception fetching email by id: " (.getMessage e))
        :value nil})))
-                   ;; return the single email map
+
+(defn get-to-address [email]
+  (get-in email [:to 0 :email]))
 
 (def mime->ext
   {"image/jpeg"      ".jpg"
