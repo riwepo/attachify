@@ -47,18 +47,18 @@
                       (do
                         (println "Step 5: Failed to create draft:" (:error-message create-draft-result))
                         create-draft-result)
-                      (let [draft-id (:value create-draft-result)
-                            submit-result (fm/submit-email session draft-id sender-id)]
+                      (let [draft-email-id (:value create-draft-result)
+                            submit-result (fm/submit-email session draft-email-id sender-id)]
                         (if (:error submit-result)
                           (do
                             (println "Step 6: Error submitting draft email:" (:error-message submit-result))
                             submit-result)
-                          (let [trash-mailbox-id (fm/get-mailbox-id-by-role mailbox-info "trash")
-                                move-email-to-trash-result (fm/move-email-to-mailbox session email-id trash-mailbox-id)]
-                            (if (:error move-email-to-trash-result)
+                          (let [sent-mailbox-id (fm/get-mailbox-id-by-role mailbox-info "sent")
+                                move-email-to-sent-result (fm/move-email-to-mailbox session draft-email-id sent-mailbox-id)]
+                            (if (:error move-email-to-sent-result)
                               (do
-                                (println "Step 7: Error moving email to Trash:" (:error-message move-email-to-trash-result))
-                                move-email-to-trash-result)
+                                (println "Step 7: Error moving email to Sent:" (:error-message move-email-to-sent-result))
+                                move-email-to-sent-result)
                               (let [processed-mailbox-id (fm/get-mailbox-id-by-name mailbox-info "Processed")
                                     move-email-to-processed-result (fm/move-email-to-mailbox session email-id processed-mailbox-id)]
                                 (if (:error move-email-to-processed-result)
