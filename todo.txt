@@ -1,13 +1,7 @@
 
 
-when I send to gmail, the attachments have name 'noname'
-
 check if when EmailSubmit, auto sent to sent folder
 
-get the destination address
-
-I have processed one email
-now loop thru and process all
 
 write tests
 
