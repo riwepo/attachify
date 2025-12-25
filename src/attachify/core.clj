@@ -9,33 +9,27 @@
       edn/read-string))
 
 (defn process-email
-  [session identity-id mailbox-data email-id]
-  (let [processing-mailbox-id (fm/get-mailbox-id-by-name mailbox-data "Processing")
-        drafts-id (fm/get-mailbox-id-by-role mailbox-data "drafts")
-        processed-id (fm/get-mailbox-by-role mailbox-data "processed")
-        ;; Step 1: Move email to Processing folder
-        move-to-processing-result (fm/move-email-to-mailbox session email-id processing-mailbox-id)]
-    (if (:error move-to-processing-result)
+  [session sender-id mailbox-info email-id from-address to-address]
+  (let [processing-mailbox-id (fm/get-mailbox-id-by-name mailbox-info "Processing")
+        move-email-to-processing-result (fm/move-email-to-mailbox session email-id processing-mailbox-id)]
+    (if (:error move-email-to-processing-result)
       (do
-        (println "Step 1: Error moving email to Processing folder:" (:error-message move-to-processing-result))
-        move-to-processing-result)
-      ;; Step 2: Fetch full email data
-      (let [fetch-email-result (fm/fetch-email-by-id session email-id)]
+        (println "Step 1: Error moving email to Processing folder:" (:error-message move-email-to-processing-result))
+        move-email-to-processing-result)
+      (let [fetch-email-result (fm/fetch-email session email-id)]
         (if (:error fetch-email-result)
           (do
             (println "Step 2: Error fetching email:" (:error-message fetch-email-result))
             fetch-email-result)
           (let [email (:value fetch-email-result)
                 blob-info (fm/get-blob-info email)
-                ;; Step 3: Download blobs
-                blobs-result (fm/download-all-blobs session blob-info)]
-            (if (:error blobs-result)
+                download-blobs-result (fm/download-blobs session blob-info)]
+            (if (:error download-blobs-result)
               (do
-                (println "Step 3: Error downloading blobs:" (:error-message blobs-result))
-                blobs-result)
-              (let [blobs (:value blobs-result)
-                    ;; Step 4: Upload all attachments with error handling
-                    upload-attachments-result (fm/upload-all-attachments session blobs)]
+                (println "Step 3: Error downloading blobs:" (:error-message download-blobs-result))
+                download-blobs-result)
+              (let [blobs (:value download-blobs-result)
+                    upload-attachments-result (fm/upload-attachments session blobs)]
                 (if (:error upload-attachments-result)
                   (do
                     (println "Step 4: Error uploading attachments:" (:error-message upload-attachments-result))
@@ -44,47 +38,94 @@
                         draft-email-object (fm/build-draft-email
                                              blobs
                                              attachment-info
-                                             (get-in email [:from 0 :email])
-                                             (get-in email [:to 0 :email])
-                                             drafts-id
+                                             from-address
+                                             to-address
+                                             (fm/get-mailbox-id-by-role mailbox-info "drafts")
                                              (:subject email))
-                        ;; Step 5: Create draft email
                         create-draft-result (fm/create-draft-email session draft-email-object)]
                     (if (:error create-draft-result)
                       (do
                         (println "Step 5: Failed to create draft:" (:error-message create-draft-result))
                         create-draft-result)
                       (let [draft-id (:value create-draft-result)
-                            ;; Step 6: Send draft email
-                            send-result (fm/send-email session draft-email-object (get-in email [:to 0 :email]))
-                            ;; Step 7: Delete draft email
-                            delete-draft-result (fm/delete-email session draft-id)
-                            ;; Step 8: Move source email to Processed folder
-                            move-to-processed-result (fm/move-email-to-mailbox session email-id processed-id)]
-                        ;; Log steps
-                        (pprint {:step "Step 6: Sent draft email" :response send-result})
-                        (pprint {:step "Step 7: Deleted draft email" :response delete-draft-result})
-                        (pprint {:step "Step 8: Moved email to Processed folder" :response move-to-processed-result})
-                        {:success true}))))))))))))
+                            submit-result (fm/submit-email session draft-id sender-id)]
+                        (if (:error submit-result)
+                          (do
+                            (println "Step 6: Error submitting draft email:" (:error-message submit-result))
+                            submit-result)
+                          (let [trash-mailbox-id (fm/get-mailbox-id-by-role mailbox-info "trash")
+                                move-email-to-trash-result (fm/move-email-to-mailbox session email-id trash-mailbox-id)]
+                            (if (:error move-email-to-trash-result)
+                              (do
+                                (println "Step 7: Error moving email to Trash:" (:error-message move-email-to-trash-result))
+                                move-email-to-trash-result)
+                              (let [processed-mailbox-id (fm/get-mailbox-id-by-name mailbox-info "Processed")
+                                    move-email-to-processed-result (fm/move-email-to-mailbox session email-id processed-mailbox-id)]
+                                (if (:error move-email-to-processed-result)
+                                  (do
+                                    (println "Step 8: Error moving email to Processed folder:" (:error-message move-email-to-processed-result))
+                                    move-email-to-processed-result)
+                                  ;; All steps succeeded
+                                  {:success true
+                                   :error false
+                                   :error-message nil
+                                   :value true})))))))))))))))))
+
 
 ;; Note: You need to implement fm/delete-email, which calls Email/set with :destroy [draft-id]
 
-(defn process-emails
-  []
-  (let [config (load-config)
-        session (fm/fetch-session config)
-        identity-data (fm/fetch-identity-data session)
-        identity-id (fm/get-identity identity-data)
-        mailbox-data (fm/fetch-mailbox-data session)
-        inbox-id (fm/get-inbox-id mailbox-data)
-        processing-id (some (fn [mbox] (when (= (:name mbox) "Processing") (:id mbox)))
-                            (:list mailbox-data))
-        ;; Get email ids in Processing folder first, then Inbox
-        processing-email-ids (fm/fetch-email-ids session processing-id)
-        inbox-email-ids (fm/fetch-email-ids session inbox-id)
-        all-email-ids (concat processing-email-ids inbox-email-ids)]
-    (doseq [email-id all-email-ids]
-      (println "Processing email id:" email-id)
-      (process-email session identity-id mailbox-data email-id))))
+;(defn process-emails
+;  []
+;  (let [config (load-config)
+;        session (fm/fetch-session config)
+;        identity-data (fm/fetch-identity-data session)
+;        identity-id (fm/get-identity identity-data)
+;        mailbox-data (fm/fetch-mailbox-data session)
+;        inbox-id (fm/get-inbox-id mailbox-data)
+;        processing-id (some (fn [mbox] (when (= (:name mbox) "Processing") (:id mbox)))
+;                            (:list mailbox-data))
+;        ;; Get email ids in Processing folder first, then Inbox
+;        processing-email-ids (fm/fetch-email-ids session processing-id)
+;        inbox-email-ids (fm/fetch-email-ids session inbox-id)
+;        all-email-ids (concat processing-email-ids inbox-email-ids)]
+;    (doseq [email-id all-email-ids]
+;      (println "Processing email id:" email-id)
+;      (process-email session identity-id mailbox-data email-id))))
+
+
+(comment
+  (defn load-config
+    []
+    (-> "resources/config.edn"
+        slurp
+        edn/read-string))
+  (def config (load-config))
+  (def fetch-session-result (fm/fetch-session config))
+  (pprint fetch-session-result)
+  (def session (:value fetch-session-result))
+  (def fetch-identity-info-result (fm/fetch-identity-info session))
+  (def identity-info (:value fetch-identity-info-result))
+  (pprint identity-info)
+  (def sender-id (:id identity-info))
+  (def fetch-mailbox-info-result (fm/fetch-mailbox-info session))
+  (def mailbox-info (:value fetch-mailbox-info-result))
+  (pprint mailbox-info)
+  (def inbox-id (fm/get-mailbox-id-by-role mailbox-info "inbox"))
+  (println inbox-id)
+  (def fetch-email-ids-result (fm/fetch-email-ids session (fm/get-mailbox-id-by-role mailbox-info "inbox")))
+  (pprint fetch-email-ids-result)
+  (def inbox-email-ids (:value fetch-email-ids-result))
+  (pprint inbox-email-ids)
+  (def email-id (first inbox-email-ids))
+  (def process-email-result (process-email
+                              session
+                              sender-id
+                              mailbox-info
+                              email-id
+                              "attachify@fastmail.com"
+                              "riwepo.work@gmail.com"))
+  (pprint process-email-result)
+
+  nil)
 
 

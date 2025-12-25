@@ -21,10 +21,30 @@
   [config]
   (let [headers {"Authorization" (str "Bearer " (:email-api-token config))
                  "Content-Type"  "application/json; charset=utf-8"}
-        auth-url (get-email-auth-url config)
-        response (http/get auth-url {:headers headers :as :json})
-        session (:body response)]
-    (assoc session :api-token (:email-api-token config))))
+        auth-url (get-email-auth-url config)]
+    (try
+      (let [response (http/get auth-url {:headers headers :as :json})
+            status (:status response)]
+        (if (and (>= status 200) (< status 300))
+          (let [session (:body response)]
+            (if (map? session)
+              {:success true
+               :error false
+               :error-message nil
+               :value (assoc session :api-token (:email-api-token config))}
+              {:success false
+               :error true
+               :error-message "Invalid session format"
+               :value nil}))
+          {:success false
+           :error true
+           :error-message (str "Failed to fetch session, status: " status)
+           :value nil}))
+      (catch Exception e
+        {:success false
+         :error true
+         :error-message (str "Error fetching session: " (.getMessage e))
+         :value nil}))))
 
 (defn get-account-id [session]
   (get-in session [:primaryAccounts :urn:ietf:params:jmap:mail]))
@@ -38,7 +58,7 @@
 (defn get-api-url [session]
   (:apiUrl session))
 
-(defn fetch-identity-data
+(defn fetch-identity-info
   [session]
   (let [headers {"Authorization" (str "Bearer " (:api-token session))
                  "Content-Type"  "application/json; charset=utf-8"}
@@ -49,23 +69,42 @@
                       :methodCalls [["Identity/get"
                                      {:accountId account-id
                                       :ids       nil}
-                                     "a"]]}
-        response (http/post (get-api-url session)
-                            {:headers headers
-                             :body    (json/encode request-body)
-                             :as      :auto})
-        body (:body response)
-        method-responses (:methodResponses body)
-        identity-get-response (first (filter #(= "Identity/get" (first %)) method-responses))
-        identity-data (get-in identity-get-response [1 :list])]
-    identity-data))
+                                     "a"]]}]
+    (try
+      (let [response (http/post (get-api-url session)
+                                {:headers headers
+                                 :body    (json/encode request-body)
+                                 :as      :auto})
+            status (:status response)
+            body (:body response)]
+        (if (and (>= status 200) (< status 300))
+          (let [method-responses (:methodResponses body)
+                identity-get-response (first (filter #(= "Identity/get" (first %)) method-responses))
+                identity-info (get-in identity-get-response [1 :list])]
+            (if (and identity-get-response (sequential? identity-info))
+              {:success true
+               :error false
+               :error-message nil
+               :value identity-info}
+              {:success false
+               :error true
+               :error-message "Identity/get response missing or malformed"
+               :value nil}))
+          {:success false
+           :error true
+           :error-message (str "Failed to fetch identity info, status: " status)
+           :value nil}))
+      (catch Exception e
+        {:success false
+         :error true
+         :error-message (str "Error fetching identity info: " (.getMessage e))
+         :value nil}))))
 
 (defn get-identity
-  [identity-data]
-  (get-in identity-data [0 :id]))
+  [identity-info]
+  (get-in identity-info [0 :id]))
 
-
-(defn fetch-mailbox-data
+(defn fetch-mailbox-info
   [session]
   (let [headers {"Authorization" (str "Bearer " (:api-token session))
                  "Content-Type"  "application/json; charset=utf-8"}
@@ -74,54 +113,105 @@
                     [["Mailbox/get"
                       {:accountId (get-account-id session)
                        :ids       nil}                      ;; nil means all mailboxes
-                      "a"]]}
-        response (http/post (get-api-url session)
-                            {:headers headers
-                             :body    (json/encode query-body)
-                             :as      :auto})
-        response-body (:body response)
-        method-response (first (:methodResponses response-body))
-        mailbox-data (second method-response)]
-    mailbox-data))
+                      "a"]]}]
+    (try
+      (let [response (http/post (get-api-url session)
+                                {:headers headers
+                                 :body    (json/encode query-body)
+                                 :as      :auto})
+            status (:status response)
+            response-body (:body response)]
+        (if (and (>= status 200) (< status 300))
+          (let [method-responses (:methodResponses response-body)
+                mailbox-get-response (first (filter #(= "Mailbox/get" (first %)) method-responses))
+                mailbox-info (:list (second mailbox-get-response))]
+            (if mailbox-get-response
+              {:success true
+               :error false
+               :error-message nil
+               :value mailbox-info}
+              {:success false
+               :error true
+               :error-message "Mailbox/get response missing"
+               :value nil}))
+          {:success false
+           :error true
+           :error-message (str "Failed to fetch mailbox info, status: " status)
+           :value nil}))
+      (catch Exception e
+        {:success false
+         :error true
+         :error-message (str "Error fetching mailbox info: " (.getMessage e))
+         :value nil}))))
+
 
 (defn get-mailbox-id-by-name
-  [mailbox-data mailbox-name]
+  [mailbox-info mailbox-name]
   (some (fn [mbox]
           (when (= (:name mbox) mailbox-name)
             (:id mbox)))
-        (:list mailbox-data)))
+        mailbox-info))
 
 (defn get-mailbox-id-by-role
-  [mailbox-data mailbox-role]
+  [mailbox-info mailbox-role]
   (some (fn [mbox]
           (when (= (:role mbox) mailbox-role)
             (:id mbox)))
-        (:list mailbox-data)))
+        mailbox-info))
 
 (defn fetch-email-ids
   [session mailbox-id]
-  (let [
-        headers {"Authorization" (str "Bearer " (:api-token session))
+  (let [headers {"Authorization" (str "Bearer " (:api-token session))
                  "Content-Type"  "application/json; charset=utf-8"}
-        query-body {:using ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"]
+        query-body {:using ["urn:ietf:params:jmap:core" "urn:ietf:params:jmap:mail"]
                     :methodCalls
-                    [
-                     ["Email/query"
-                      {
-                       :accountId (get-account-id session),
+                    [["Email/query"
+                      {:accountId (get-account-id session)
                        :filter    {:inMailbox mailbox-id}}
-                      "a"]]}
-        response (http/post (get-api-url session)
-                            {:headers headers
-                             :body    (json/encode query-body)
-                             :as      :auto})
-        body (:body response)
-        method-response (first (:methodResponses body))
-        method-response-data (second method-response)
-        email-ids (:ids method-response-data)]
-    email-ids))
+                      "a"]]}]
+    (try
+      (let [response (http/post (get-api-url session)
+                                {:headers headers
+                                 :body    (json/encode query-body)
+                                 :as      :auto})
+            status (:status response)
+            body (:body response)]
+        (if (and (>= status 200) (< status 300))
+          (let [method-responses (:methodResponses body)
+                error-response (first (filter #(= "error" (first %)) method-responses))
+                email-query-response (first (filter #(= "Email/query" (first %)) method-responses))]
+            (cond
+              error-response
+              (let [{:keys [arguments type]} (second error-response)
+                    error-msg (str "API error: " type ", arguments: " arguments)]
+                {:success false
+                 :error true
+                 :error-message error-msg
+                 :value nil})
+              email-query-response
+              (let [method-response-data (second email-query-response)
+                    email-ids (:ids method-response-data)]
+                {:success true
+                 :error false
+                 :error-message nil
+                 :value email-ids})
+              :else
+              {:success false
+               :error true
+               :error-message "Neither Email/query nor error response found"
+               :value nil}))
+          {:success false
+           :error true
+           :error-message (str "Failed to fetch email ids, status: " status)
+           :value nil}))
+      (catch Exception e
+        {:success false
+         :error true
+         :error-message (str "Error fetching email ids: " (.getMessage e))
+         :value nil}))))
 
-(defn fetch-email-by-id
+
+(defn fetch-email
   [session email-id]
   (try
     (let [headers {"Authorization" (str "Bearer " (:api-token session))
@@ -285,51 +375,6 @@
        :error-message (str "Exception during upload: " (.getMessage e))
        :value nil})))
 
-
-
-
-(defn send-email
-  [session email address]
-  (let [headers {"Authorization" (str "Bearer " (:api-token session))
-                 "Content-Type"  "application/json; charset=utf-8"}
-        account-id (get-account-id session)
-        email-id "new-email"                                ;; client-side temporary id
-        submission-id "new-submission"
-        ;; Ensure :from is a vector of maps, :to is vector of {:email ...}
-        email-object (-> email
-                         (dissoc :mailboxIds)               ;; remove mailboxIds to avoid invalidProperties error
-                         (assoc :to (if (vector? address)
-                                      (mapv #(hash-map :email %) address)
-                                      [{:email address}])))
-        method-calls
-        [
-         ;; Create Email
-         ["Email/set"
-          {:accountId account-id
-           :create    {email-id email-object}}
-          "a"]
-
-         ;; Submit Email for sending
-         ["EmailSubmission/set"
-          {:accountId account-id
-           :create    {submission-id {:emailId  email-id
-                                      :envelope {:mailFrom (get-in email [:from 0 :email])
-                                                 :rcptTo   (if (vector? address)
-                                                             address
-                                                             [address])}}}}
-          "b"]]
-
-        request-body {:using       ["urn:ietf:params:jmap:core"
-                                    "urn:ietf:params:jmap:mail"
-                                    "urn:ietf:params:jmap:submission"]
-                      :methodCalls method-calls}
-        response (http/post (get-api-url session)
-                            {:headers headers
-                             :body    (json/encode request-body)
-                             :as      :auto})]
-    (println "Send email response:" (:body response))
-    response))
-
 (defn get-blob-info
   [email]
   (let [text-blobs (map (fn [part]
@@ -410,7 +455,7 @@
        :error true
        :error-message (get-in email-set-response [1 :notCreated (keyword draft-id) :description])})))
 
-(defn upload-all-attachments
+(defn upload-attachments
   [session blobs]
   (loop [remaining blobs
          results []]
@@ -435,30 +480,43 @@
           ;; Not an attachment, skip it
           (recur (rest remaining) results))))))
 
-
-
-
-
-
 (defn submit-email
-  [session draft-email-id identity-id]
+  [session email-id identity-id]
   (let [account-id (get-account-id session)
         submission-id "submission_id"
-        email-submission {:emailId draft-email-id :identityId identity-id}
+        email-submission {:emailId email-id :identityId identity-id}
         method-calls [["EmailSubmission/set"
                        {:accountId account-id
                         :create {submission-id email-submission}}
                        "0"]]
         request-body {:using ["urn:ietf:params:jmap:core" "urn:ietf:params:jmap:mail" "urn:ietf:params:jmap:submission"]
                       :methodCalls method-calls}
-        response (http/post (get-api-url session)
-                            {:headers {"Authorization" (str "Bearer " (:api-token session))
-                                       "Content-Type" "application/json; charset=utf-8"}
-                             :body (json/encode request-body)
-                             :as :auto})]
-    response))
+        headers {"Authorization" (str "Bearer " (:api-token session))
+                 "Content-Type"  "application/json; charset=utf-8"}]
+    (try
+      (let [response (http/post (get-api-url session)
+                                {:headers headers
+                                 :body    (json/encode request-body)
+                                 :as      :auto})
+            status (:status response)
+            body (:body response)]
+        (if (and (>= status 200) (< status 300))
+          {:success true
+           :error false
+           :error-message nil
+           :value true}
+          {:success false
+           :error true
+           :error-message (str "Failed to submit email, status: " status)
+           :value nil}))
+      (catch Exception e
+        {:success false
+         :error true
+         :error-message (str "Error submitting email: " (.getMessage e))
+         :value nil}))))
 
-(defn download-all-blobs
+
+(defn download-blobs
   [session blob-info]
   (loop [remaining blob-info
          results []]
@@ -498,44 +556,34 @@
   (def config (load-config))
   (def session (fetch-session config))
   (pprint session)
-  (def identity-data (fetch-identity-data session))
-  (pprint identity-data)
-  (def send-identity (get-identity identity-data))
+  (def identity-info (fetch-identity-info session))
+  (pprint identity-info)
+  (def send-identity (get-identity identity-info))
   (println send-identity)
-  (def mailbox-data (fetch-mailbox-data session))
-  (pprint mailbox-data)
-  (def inbox-id (get-mailbox-id-by-role mailbox-data "inbox"))
-  (println inbox-id)
-  (def drafts-id (get-mailbox-id-by-role mailbox-data "drafts"))
-  (println drafts-id)
-  (def trash-id (get-mailbox-id-by-role mailbox-data "trash"))
-  (println trash-id)
-  (def processed-id (get-mailbox-id-by-name mailbox-data "Processed"))
-  (println processed-id)
-  (def inbox-email-ids (fetch-email-ids session inbox-id))
+  (def mailbox-info (fetch-mailbox-info session))
+  (pprint mailbox-info)
+  (def inbox-email-ids (fetch-email-ids session (get-mailbox-id-by-role mailbox-info "inbox")))
   (println inbox-email-ids)
-  (def processed-email-ids (fetch-email-ids session processed-id))
-  (println processed-email-ids)
   (def email-id (first inbox-email-ids))
   (println email-id)
-  (def email (fetch-email-by-id session email-id))
+  (def email (fetch-email session email-id))
   (pprint email)
   (def blob-info (get-blob-info email))
   (pprint blob-info)
-  (def download-blobs-result (download-all-blobs session blob-info))
+  (def download-blobs-result (download-blobs session blob-info))
   (pprint download-blobs-result)
   (def blobs (:value download-blobs-result))
   (pprint blobs)
-  (def upload-all-attachments-result (upload-all-attachments session blobs))
-  (pprint upload-all-attachments-result)
-  (def attachment-info (:value upload-all-attachments-result))
+  (def upload-attachments-result (upload-attachments session blobs))
+  (pprint upload-attachments-result)
+  (def attachment-info (:value upload-attachments-result))
   (pprint attachment-info)
   (def draft-email-object (build-draft-email
                             blobs
                             attachment-info
-                            "attachify.com"
+                            "attachify@fastmail.com"
                             "riwepo.work@gmail.com"
-                            drafts-id
+                            (get-mailbox-id-by-role mailbox-info "drafts")
                             (:subject email)))
   (pprint draft-email-object)
   (def create-draft-email-result (create-draft-email
