@@ -3,3 +3,14 @@
 when I send to gmail, the attachments have name 'noname'
 
 get the destination address
+
+I have processed one email
+now loop thru and process all
+
+write tests
+
+add logging
+
+put in babashka
+
+put in docker
