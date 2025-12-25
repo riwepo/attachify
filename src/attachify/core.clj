@@ -8,8 +8,11 @@
       slurp
       edn/read-string))
 
+(defn get-to-address [config]
+  (:to-address config))
+
 (defn process-email
-  [session sender-id mailbox-info email-id from-address to-address]
+  [config session sender-id mailbox-info email-id]
   (let [processing-mailbox-id (fm/get-mailbox-id-by-name mailbox-info "Processing")
         move-email-to-processing-result (fm/move-email-to-mailbox session email-id processing-mailbox-id)]
     (if (:error move-email-to-processing-result)
@@ -35,6 +38,8 @@
                     (println "Step 4: Error uploading attachments:" (:error-message upload-attachments-result))
                     upload-attachments-result)
                   (let [attachment-info (:value upload-attachments-result)
+                        from-address (:from-address config)
+                        to-address (get-to-address config)
                         draft-email-object (fm/build-draft-email
                                              blobs
                                              attachment-info
@@ -72,61 +77,57 @@
                                    :value true})))))))))))))))))
 
 
-;; Note: You need to implement fm/delete-email, which calls Email/set with :destroy [draft-id]
 
-;(defn process-emails
-;  []
-;  (let [config (load-config)
-;        session (fm/fetch-session config)
-;        identity-data (fm/fetch-identity-data session)
-;        identity-id (fm/get-identity identity-data)
-;        mailbox-data (fm/fetch-mailbox-data session)
-;        inbox-id (fm/get-inbox-id mailbox-data)
-;        processing-id (some (fn [mbox] (when (= (:name mbox) "Processing") (:id mbox)))
-;                            (:list mailbox-data))
-;        ;; Get email ids in Processing folder first, then Inbox
-;        processing-email-ids (fm/fetch-email-ids session processing-id)
-;        inbox-email-ids (fm/fetch-email-ids session inbox-id)
-;        all-email-ids (concat processing-email-ids inbox-email-ids)]
-;    (doseq [email-id all-email-ids]
-;      (println "Processing email id:" email-id)
-;      (process-email session identity-id mailbox-data email-id))))
+(defn process-emails
+  []
+  (let [config (load-config)
+        fetch-session-result (fm/fetch-session config)]
+    (if (:error fetch-session-result)
+      (do
+        (println "Error fetching session:" (:error fetch-session-result))
+        fetch-session-result)
+      (let [session (:value fetch-session-result)
+            identity-info-result (fm/fetch-identity-info session)]
+        (if (:error identity-info-result)
+          (do
+            (println "Error fetching identity info:" (:error identity-info-result))
+            identity-info-result)
+          (let [identity-info (:value identity-info-result)
+                sender-id (fm/get-identity-id identity-info)
+                mailbox-info-result (fm/fetch-mailbox-info session)]
+            (if (:error mailbox-info-result)
+              (do
+                (println "Error fetching mailbox info:" (:error mailbox-info-result))
+                mailbox-info-result)
+              (let [mailbox-info (:value mailbox-info-result)
+                    from-address (:from-address config)
+                    inbox-mailbox-id (fm/get-mailbox-id-by-role mailbox-info "inbox")
+                    processing-mailbox-id (fm/get-mailbox-id-by-name mailbox-info "Processing")
+                    processing-email-ids-result (fm/fetch-email-ids session processing-mailbox-id)]
+                (if (:error processing-email-ids-result)
+                  (do
+                    (println "Error fetching email IDs from Processing mailbox:" (:error processing-email-ids-result))
+                    processing-email-ids-result)
+                  (let [processing-email-ids (:value processing-email-ids-result)
+                        inbox-email-ids-result (fm/fetch-email-ids session inbox-mailbox-id)]
+                    (if (:error inbox-email-ids-result)
+                      (do
+                        (println "Error fetching email IDs from Inbox mailbox:" (:error inbox-email-ids-result))
+                        inbox-email-ids-result)
+                      (let [inbox-email-ids (:value inbox-email-ids-result)
+                            all-email-ids (concat processing-email-ids inbox-email-ids)]
+                        (doseq [email-id all-email-ids]
+                          (println "Processing email id:" email-id)
+                          (let [result (process-email session sender-id mailbox-info from-address email-id)]
+                            (when (:error result)
+                              (println "Error processing email id" email-id ":" (:error result)))))
+                        {:value true}))))))))))))
+
 
 
 (comment
-  (defn load-config
-    []
-    (-> "resources/config.edn"
-        slurp
-        edn/read-string))
-  (def config (load-config))
-  (def fetch-session-result (fm/fetch-session config))
-  (pprint fetch-session-result)
-  (def session (:value fetch-session-result))
-  (def fetch-identity-info-result (fm/fetch-identity-info session))
-  (def identity-info (:value fetch-identity-info-result))
-  (pprint identity-info)
-  (def sender-id (fm/get-identity-id identity-info))
-  (println sender-id)
-  (def fetch-mailbox-info-result (fm/fetch-mailbox-info session))
-  (def mailbox-info (:value fetch-mailbox-info-result))
-  (pprint mailbox-info)
-  (def inbox-id (fm/get-mailbox-id-by-role mailbox-info "inbox"))
-  (println inbox-id)
-  (def fetch-email-ids-result (fm/fetch-email-ids session (fm/get-mailbox-id-by-role mailbox-info "inbox")))
-  (pprint fetch-email-ids-result)
-  (def inbox-email-ids (:value fetch-email-ids-result))
-  (pprint inbox-email-ids)
-  (def email-id (first inbox-email-ids))
-  (def process-email-result (process-email
-                              session
-                              sender-id
-                              mailbox-info
-                              email-id
-                              "attachify@fastmail.com"
-                              "riwepo.work@gmail.com"))
-  (pprint process-email-result)
-
+  (def process-emails-result (process-emails))
+  (pprint process-emails-result)
   nil)
 
 
