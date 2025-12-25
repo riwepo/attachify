@@ -1,7 +1,6 @@
 (ns attachify.fastmail
   (:require [clojure.pprint :refer [pprint]]
             [clojure.string :as str]
-            [clojure.edn :as edn]
             [clj-http.client :as http]
             [cheshire.core :as json])
   (:import [java.net URLEncoder]
@@ -450,12 +449,13 @@
                         (:htmlBody email))
         attachment-blobs (map (fn [att]
                                 {:role :attachment
+                                 :name (:name att)
                                  :blobId (:blobId att)
                                  :type (:type att)})
                               (:attachments email))]
     (->> (concat text-blobs html-blobs attachment-blobs)
          (filter #(some :blobId [%])) ;; only keep entries with blobId
-         (map #(select-keys % [:role :blobId :type]))
+         (map #(select-keys % [:role :blobId :type :name]))
          (into []))))
 
 (defn build-draft-email
@@ -471,7 +471,8 @@
                          (map (fn [att]
                                 (let [old-id (:blobId att)
                                       new-id (get id-map old-id)]
-                                  {:blobId new-id
+                                  {:name (:name att)
+                                   :blobId new-id
                                    :type (:type att)
                                    :disposition "attachment"})))
                          vec)]
@@ -642,48 +643,5 @@
 
 
 (comment
-  (defn load-config
-    []
-    (-> "resources/config.edn"
-        slurp
-        edn/read-string))
-  (def config (load-config))
-  (def session (fetch-session config))
-  (pprint session)
-  (def identity-info (fetch-identity-info session))
-  (pprint identity-info)
-  (def send-identity (get-identity-id identity-info))
-  (println send-identity)
-  (def mailbox-info (fetch-mailbox-info session))
-  (pprint mailbox-info)
-  (def inbox-email-ids (fetch-email-ids session (get-mailbox-id-by-role mailbox-info "inbox")))
-  (println inbox-email-ids)
-  (def email-id (first inbox-email-ids))
-  (println email-id)
-  (def email (fetch-email session email-id))
-  (pprint email)
-  (def blob-info (get-blob-info email))
-  (pprint blob-info)
-  (def download-blobs-result (download-blobs session blob-info))
-  (pprint download-blobs-result)
-  (def blobs (:value download-blobs-result))
-  (pprint blobs)
-  (def upload-attachments-result (upload-attachments session blobs))
-  (pprint upload-attachments-result)
-  (def attachment-info (:value upload-attachments-result))
-  (pprint attachment-info)
-  (def draft-email-object (build-draft-email
-                            blobs
-                            attachment-info
-                            "attachify@fastmail.com"
-                            "riwepo.work@gmail.com"
-                            (get-mailbox-id-by-role mailbox-info "drafts")
-                            (:subject email)))
-  (pprint draft-email-object)
-  (def create-draft-email-result (create-draft-email
-                                   session
-                                   draft-email-object))
-  (pprint create-draft-email-result)
-
-  nil)
+   nil)
 
