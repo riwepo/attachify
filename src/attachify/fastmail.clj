@@ -100,7 +100,7 @@
          :error-message (str "Error fetching identity info: " (.getMessage e))
          :value nil}))))
 
-(defn get-identity
+(defn get-identity-id
   [identity-info]
   (get-in identity-info [0 :id]))
 
@@ -446,7 +446,6 @@
         email-set-response (first (filter #(= "Email/set" (first %)) method-responses))
         created-map (get-in email-set-response [1 :created])
         real-email-id (get-in created-map [(keyword draft-id) :id])]
-    (pprint body)
     (if real-email-id
       {:success true
        :error false
@@ -498,8 +497,7 @@
                                 {:headers headers
                                  :body    (json/encode request-body)
                                  :as      :auto})
-            status (:status response)
-            body (:body response)]
+            status (:status response)]
         (if (and (>= status 200) (< status 300))
           {:success true
            :error false
@@ -558,7 +556,7 @@
   (pprint session)
   (def identity-info (fetch-identity-info session))
   (pprint identity-info)
-  (def send-identity (get-identity identity-info))
+  (def send-identity (get-identity-id identity-info))
   (println send-identity)
   (def mailbox-info (fetch-mailbox-info session))
   (pprint mailbox-info)
