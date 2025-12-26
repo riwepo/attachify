@@ -103,20 +103,20 @@
         fetch-session-result (fm/fetch-session config)]
     (if (:error fetch-session-result)
       (do
-        (println "Error fetching session:" (:error-message fetch-session-result))
+        (timbre/error "Error fetching session:" (:error-message fetch-session-result))
         fetch-session-result)
       (let [session (:value fetch-session-result)
             identity-info-result (fm/fetch-identity-info session)]
         (if (:error identity-info-result)
           (do
-            (println "Error fetching identity info:" (:error-message identity-info-result))
+            (timbre/error "Error fetching identity info:" (:error-message identity-info-result))
             identity-info-result)
           (let [identity-info (:value identity-info-result)
                 sender-id (fm/get-identity-id identity-info)
                 mailbox-info-result (fm/fetch-mailbox-info session)]
             (if (:error mailbox-info-result)
               (do
-                (println "Error fetching mailbox info:" (:error-message mailbox-info-result))
+                (timbre/error "Error fetching mailbox info:" (:error-message mailbox-info-result))
                 mailbox-info-result)
               (let [mailbox-info (:value mailbox-info-result)
                     inbox-mailbox-id (fm/get-mailbox-id-by-role mailbox-info "inbox")
@@ -124,13 +124,13 @@
                     processing-email-ids-result (fm/fetch-email-ids session processing-mailbox-id)]
                 (if (:error processing-email-ids-result)
                   (do
-                    (println "Error fetching email IDs from Processing mailbox:" (:error-message processing-email-ids-result))
+                    (timbre/error "Error fetching email IDs from Processing mailbox:" (:error-message processing-email-ids-result))
                     processing-email-ids-result)
                   (let [processing-email-ids (:value processing-email-ids-result)
                         inbox-email-ids-result (fm/fetch-email-ids session inbox-mailbox-id)]
                     (if (:error inbox-email-ids-result)
                       (do
-                        (println "Error fetching email IDs from Inbox mailbox:" (:error-message inbox-email-ids-result))
+                        (timbre/error "Error fetching email IDs from Inbox mailbox:" (:error-message inbox-email-ids-result))
                         inbox-email-ids-result)
                       (let [inbox-email-ids (:value inbox-email-ids-result)
                             all-email-ids (concat processing-email-ids inbox-email-ids)
@@ -138,7 +138,7 @@
                         (doseq [email-id all-email-ids]
                           (let [result (process-email config session sender-id mailbox-info email-id)]
                             (if (:error result)
-                              (println "Error processing email id" (str "'" email-id "'") ":" (:error-message result))
+                              (timbre/error "Error processing email id" (str "'" email-id "'") ":" (:error-message result))
                               (swap! success-count inc))))
                         {:value @success-count}))))))))))))
 
