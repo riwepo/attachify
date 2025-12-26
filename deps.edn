@@ -1,3 +1,4 @@
 {:deps {yogthos/config    {:mvn/version "1.2.1"}
         clj-http/clj-http {:mvn/version "3.13.1"}
-        cheshire/cheshire {:mvn/version "6.1.0"}}}
+        cheshire/cheshire {:mvn/version "6.1.0"}
+        com.taoensso/timbre {:mvn/version "6.8.0"}}}

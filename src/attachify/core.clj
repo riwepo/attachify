@@ -1,6 +1,7 @@
 (ns attachify.core
   (:require [clojure.pprint :refer [pprint]]
             [clojure.edn :as edn]
+            [taoensso.timbre :as timbre]
             [attachify.fastmail :as fm]))
 
 (defn load-config []
@@ -21,6 +22,7 @@
 
 (defn process-email
   [config session sender-id mailbox-info email-id]
+  (timbre/debug (str "processing email " email-id))
   (let [processing-mailbox-id (fm/get-mailbox-id-by-name mailbox-info "Processing")
         move-email-to-processing-result (fm/move-email-to-mailbox session email-id processing-mailbox-id)]
     (if (:error move-email-to-processing-result)
