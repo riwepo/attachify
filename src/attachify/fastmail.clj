@@ -2,7 +2,8 @@
   (:require [clojure.string :as str]
             [clj-http.client :as http]
             [cheshire.core :as json]
-            [taoensso.timbre :as timbre])
+            [taoensso.timbre :as timbre]
+            [attachify.result :as result])
   (:import [java.net URLEncoder]
            [java.nio.charset StandardCharsets]))
 
@@ -27,29 +28,12 @@
         (if (and (>= status 200) (< status 300))
           (let [session (:body response)]
             (if (map? session)
-              {:success true
-               :error false
-               :error-message nil
-               :value (assoc session :api-token (:email-api-token config))}
-              (do
-                (timbre/error "Invalid session format")
-                {:success false
-                 :error true
-                 :error-message "Invalid session format"
-                 :value nil})))
-          (let [msg (str "Failed to fetch session, status: " status)]
-            (timbre/error msg)
-            {:success false
-             :error true
-             :error-message msg
-             :value nil})))
-      (catch Exception e
-        (let [msg (str "Error fetching session: " (.getMessage e))]
-          (timbre/error msg)
-          {:success false
-           :error true
-           :error-message msg
-           :value nil})))))
+              (result/success (assoc session :api-token (:email-api-token config)), "Fetched session")
+              (result/failure "Invalid session format")))
+          (result/failure (str "Failed to fetch session, status: " status))))
+    (catch Exception e
+      (result/failure (str "Error fetching session: " (.getMessage e)))))))
+
 
 
 (defn get-account-id [session]
@@ -63,6 +47,10 @@
 
 (defn get-api-url [session]
   (:apiUrl session))
+
+(defn get-identity-id
+  [identity-info]
+  (get-in identity-info [0 :id]))
 
 (defn fetch-identity-info
   [session]
@@ -91,51 +79,19 @@
               error-response
               (let [{:keys [arguments type]} (second error-response)
                     error-msg (str "API error: " type ", arguments: " arguments)]
-                (timbre/error error-msg)
-                {:success false
-                 :error true
-                 :error-message error-msg
-                 :value nil})
+                (result/failure error-msg))
 
               identity-get-response
               (let [identity-info (get-in identity-get-response [1 :list])]
                 (if (sequential? identity-info)
-                  {:success true
-                   :error false
-                   :error-message nil
-                   :value identity-info}
-                  (let [error-msg "Identity/get response malformed"]
-                    (timbre/error error-msg)
-                    {:success false
-                     :error true
-                     :error-message error-msg
-                     :value nil})))
+                  (result/success identity-info (str "Fetched identity info with id '" (get-identity-id identity-info) "'"))
+                  (result/failure "Identity/get response malformed")))
 
               :else
-              (let [error-msg "Neither Identity/get nor error response found"]
-                (timbre/error error-msg)
-                {:success false
-                 :error true
-                 :error-message error-msg
-                 :value nil})))
-          (let [error-msg (str "Failed to fetch identity info, status: " status)]
-            (timbre/error error-msg)
-            {:success false
-             :error true
-             :error-message error-msg
-             :value nil})))
-
+              (result/failure "Neither Identity/get nor error response found")))
+          (result/failure (str "Failed to fetch identity info, status: " status))))
       (catch Exception e
-        (let [error-msg (str "Error fetching identity info: " (.getMessage e))]
-          (timbre/error error-msg)
-          {:success false
-           :error true
-           :error-message error-msg
-           :value nil})))))
-
-(defn get-identity-id
-  [identity-info]
-  (get-in identity-info [0 :id]))
+        (result/failure (str "Error fetching identity info: " (.getMessage e)))))))
 
 (defn fetch-mailbox-info
   [session]
@@ -162,40 +118,17 @@
               error-response
               (let [{:keys [arguments type]} (second error-response)
                     error-msg (str "API error: " type ", arguments: " arguments)]
-                (timbre/error error-msg)
-                {:success false
-                 :error true
-                 :error-message error-msg
-                 :value nil})
+                (result/failure error-msg))
 
               mailbox-get-response
-              (let [mailbox-info (:list (second mailbox-get-response))]
-                {:success true
-                 :error false
-                 :error-message nil
-                 :value mailbox-info})
+              (let [result (:list (second mailbox-get-response))]
+                (result/success result (str "Fetched mailbox info" result))))
 
               :else
-              (let [error-msg "Neither Mailbox/get nor error response found"]
-                (timbre/error error-msg)
-                {:success false
-                 :error true
-                 :error-message error-msg
-                 :value nil})))
-          (let [error-msg (str "Failed to fetch mailbox info, status: " status)]
-            (timbre/error error-msg)
-            {:success false
-             :error true
-             :error-message error-msg
-             :value nil})))
-
+              (result/failure "Neither Mailbox/get nor error response found")))
+          (result/failure (str "Failed to fetch mailbox info, status: " status))))
       (catch Exception e
-        (let [error-msg (str "Error fetching mailbox info: " (.getMessage e))]
-          (timbre/error error-msg)
-          {:success false
-           :error true
-           :error-message error-msg
-           :value nil})))))
+        (result/failure (str "Error fetching mailbox info: " (.getMessage e)))))))
 
 
 
@@ -238,41 +171,16 @@
               error-response
               (let [{:keys [arguments type]} (second error-response)
                     error-msg (str "API error: " type ", arguments: " arguments)]
-                (timbre/error error-msg)
-                {:success false
-                 :error true
-                 :error-message error-msg
-                 :value nil})
+                (result/failure error-msg))
 
               email-query-response
-              (let [method-response-data (second email-query-response)
-                    email-ids (:ids method-response-data)]
-                {:success true
-                 :error false
-                 :error-message nil
-                 :value email-ids})
+              (result/success (:ids (second email-query-response)))
 
               :else
-              (let [error-msg "Neither Email/query nor error response found"]
-                (timbre/error error-msg)
-                {:success false
-                 :error true
-                 :error-message error-msg
-                 :value nil})))
-          (let [error-msg (str "Failed to fetch email ids, status: " status)]
-            (timbre/error error-msg)
-            {:success false
-             :error true
-             :error-message error-msg
-             :value nil})))
-
+              (result/failure "Neither Email/query nor error response found")))
+          (result/failure (str "Failed to fetch email ids, status: " status))))
       (catch Exception e
-        (let [error-msg (str "Error fetching email ids: " (.getMessage e))]
-          (timbre/error error-msg)
-          {:success false
-           :error true
-           :error-message error-msg
-           :value nil})))))
+        (result/failure (str "Error fetching email ids: " (.getMessage e)))))))
 
 
 (defn fetch-email
@@ -298,41 +206,20 @@
         error-response
         (let [{:keys [arguments type]} (second error-response)
               error-msg (str "API error: " type ", arguments: " arguments)]
-          (timbre/error error-msg)
-          {:success false
-           :error true
-           :error-message error-msg
-           :value nil})
+          (result/failure error-msg))
 
         email-get-response
-        (let [method-response-data (second email-get-response)
-              emails (:list method-response-data)
+        (let [emails (:list (second email-get-response))
               email (first emails)]
           (if email
-            {:success true
-             :error false
-             :value email}
-            (let [error-msg (str "Email with id " email-id " not found")]
-              (timbre/error error-msg)
-              {:success false
-               :error true
-               :error-message error-msg
-               :value nil})))
+            (result/success email)
+            (result/failure (str "Email with id " email-id " not found"))))
 
         :else
-        (let [error-msg "Neither Email/get nor error response found"]
-          (timbre/error error-msg)
-          {:success false
-           :error true
-           :error-message error-msg
-           :value nil})))
+        (result/failure "Neither Email/get nor error response found")))
     (catch Exception e
-      (let [error-msg (str "Exception fetching email by id: " (.getMessage e))]
-        (timbre/error error-msg)
-        {:success false
-         :error true
-         :error-message error-msg
-         :value nil}))))
+      (result/failure (str "Exception fetching email by id: " (.getMessage e))))))
+
 
 (defn get-to-address [email]
   (get-in email [:to 0 :email]))
@@ -376,34 +263,16 @@
         error-response
         (let [{:keys [arguments type]} (second error-response)
               error-msg (str "API error: " type ", arguments: " arguments)]
-          (timbre/error error-msg)
-          {:success false
-           :error true
-           :error-message error-msg
-           :value false})
+          (result/failure error-msg))
 
         (or (nil? email-set-response) (seq not-created))
-        (let [error-msg (str "Failed to move email " email-id " to mailbox " mailbox-id
-                             ". Details: " not-created)]
-          (timbre/error error-msg)
-          {:success false
-           :error true
-           :error-message error-msg
-           :value false})
+        (result/failure (str "Failed to move email " email-id " to mailbox " mailbox-id
+                             ". Details: " not-created))
 
         :else
-        {:success true
-         :error false
-         :value true}))
+        (result/success true)))
     (catch Exception e
-      (let [error-msg (str "Exception during move-email-to-mailbox: " (.getMessage e))]
-        (timbre/error error-msg)
-        {:success false
-         :error true
-         :error-message error-msg
-         :value false}))))
-
-
+      (result/failure (str "Exception during move-email-to-mailbox: " (.getMessage e))))))
 
 (defn bytes->string
   [byte-array & {:keys [charset] :or {charset "UTF-8"}}]
@@ -443,17 +312,10 @@
                                 replace-nbsp)
                             ;; else keep raw bytes (e.g. images, pdfs)
                             bytes)]
-      {:success true
-       :error false
-       :error-message nil
-       :value decoded-content})
+      (result/success decoded-content))
     (catch Exception e
-      (let [error-msg (str "Failed to download or decode blob: " (.getMessage e))]
-        (timbre/error error-msg)
-        {:success false
-         :error true
-         :error-message error-msg
-         :value nil}))))
+      (result/failure (str "Failed to download or decode blob: " (.getMessage e))))))
+
 
 (defn upload-blob
   [session blob]
@@ -472,23 +334,10 @@
                  (json/parse-string (:body response) true)
                  nil)]
       (if (and (= status 200) (contains? body :blobId))
-        {:success true
-         :error false
-         :error-message nil
-         :value (:blobId body)}
-        (let [error-msg (str "Upload failed with status " status " and body: " body)]
-          (timbre/error error-msg)
-          {:success false
-           :error true
-           :error-message error-msg
-           :value nil})))
+        (result/success (:blobId body))
+        (result/failure (str "Upload failed with status " status " and body: " body))))
     (catch Exception e
-      (let [error-msg (str "Exception during upload: " (.getMessage e))]
-        (timbre/error error-msg)
-        {:success false
-         :error true
-         :error-message error-msg
-         :value nil}))))
+      (result/failure (str "Exception during upload: " (.getMessage e))))))
 
 (defn get-blob-info
   [email]
@@ -569,32 +418,17 @@
         error-response
         (let [{:keys [arguments type]} (second error-response)
               error-msg (str "API error: " type ", arguments: " arguments)]
-          (timbre/error error-msg)
-          {:success false
-           :error true
-           :error-message error-msg
-           :value nil})
+          (result/failure error-msg))
 
         real-email-id
-        {:success true
-         :error false
-         :value real-email-id}
+        (result/success real-email-id)
 
         :else
-        (let [error-msg (get-in email-set-response [1 :notCreated (keyword draft-id) :description]
-                                "Unknown error creating draft email")]
-          (timbre/error error-msg)
-          {:success false
-           :error true
-           :error-message error-msg
-           :value nil})))
+        (result/failure (get-in email-set-response [1 :notCreated (keyword draft-id) :description]
+                                "Unknown error creating draft email"))))
     (catch Exception e
-      (let [error-msg (str "Exception creating draft email: " (.getMessage e))]
-        (timbre/error error-msg)
-        {:success false
-         :error true
-         :error-message error-msg
-         :value nil}))))
+      (result/failure (str "Exception creating draft email: " (.getMessage e))))))
+
 
 
 (defn upload-attachments
@@ -602,20 +436,12 @@
   (loop [remaining blobs
          results []]
     (if (empty? remaining)
-      {:success true
-       :error false
-       :error-message nil
-       :value results}
+      (result/success results)
       (let [blob (first remaining)]
         (if (= (:role blob) :attachment)
           (let [upload-result (upload-blob session blob)]
             (if (:error upload-result)
-              (do
-                (timbre/error (:error-message upload-result))
-                {:success false
-                 :error true
-                 :error-message (:error-message upload-result)
-                 :value nil})
+              (result/failure (:error-message upload-result))
               (recur (rest remaining)
                      (conj results {:role (:role blob)
                                     :blobId {:old (:blobId blob)
@@ -623,6 +449,7 @@
                                     :type (:type blob)}))))
           ;; Not an attachment, skip it
           (recur (rest remaining) results))))))
+
 
 (defn submit-email
   [session email-id identity-id]
@@ -650,32 +477,15 @@
           error-response
           (let [{:keys [arguments type]} (second error-response)
                 error-msg (str "API error: " type ", arguments: " arguments)]
-            (timbre/error error-msg)
-            {:success false
-             :error true
-             :error-message error-msg
-             :value nil})
+            (result/failure error-msg))
 
           (and (>= status 200) (< status 300))
-          {:success true
-           :error false
-           :error-message nil
-           :value true}
+          (result/success true)
 
           :else
-          (let [error-msg (str "Failed to submit email, status: " status)]
-            (timbre/error error-msg)
-            {:success false
-             :error true
-             :error-message error-msg
-             :value nil})))
+          (result/failure (str "Failed to submit email, status: " status))))
       (catch Exception e
-        (let [error-msg (str "Error submitting email: " (.getMessage e))]
-          (timbre/error error-msg)
-          {:success false
-           :error true
-           :error-message error-msg
-           :value nil})))))
+        (result/failure (str "Error submitting email: " (.getMessage e)))))))
 
 
 
@@ -684,27 +494,17 @@
   (loop [remaining blob-info
          results []]
     (if (empty? remaining)
-      ;; All blobs processed successfully, return vector with :value added and no error keys
-      {:success true
-       :error false
-       :error-message nil
-       :value (mapv
-                (fn [blob download]
-                  (assoc blob :value (:value download)))
-                blob-info
-                results)}
+      (result/success
+        (mapv
+          (fn [blob download]
+            (assoc blob :value (:value download)))
+          blob-info
+          results))
       (let [blob (first remaining)
             filename (str (name (:role blob))) ;; Use role name as filename base
             download-result (download-blob session blob filename)]
         (if (:error download-result)
-          (do
-            (timbre/error (:error-message download-result))
-            ;; Error occurred, return immediately with error info
-            {:success false
-             :error true
-             :error-message (:error-message download-result)
-             :value nil})
-          ;; No error, accumulate download result and continue
+          (result/failure (:error-message download-result))
           (recur (rest remaining)
                  (conj results download-result)))))))
 
