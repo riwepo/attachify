@@ -1,13 +1,8 @@
 (ns attachify.core
   (:require [clojure.pprint :refer [pprint]]
-            [clojure.edn :as edn]
             [taoensso.timbre :as timbre]
-            [attachify.fastmail :as fm]))
-
-(defn load-config []
-  (-> "resources/config.edn"
-      slurp
-      edn/read-string))
+            [attachify.fastmail :as fm]
+            [attachify.config :refer [load-config]]))
 
 (defn extract-resend-username [to-address]
   (let [pattern #"^attachify\+(.+)@fastmail\.com$"
@@ -40,9 +35,9 @@
             (if (nil? resend-username)
               (do
                 (println "Error: resend-username is nil, cannot proceed")
-                {:error true
+                {:error         true
                  :error-message (str "resend-username not found in to-address " (str "'" to-address "'"))
-                 :value nil})
+                 :value         nil})
               (let [resend-address (build-resend-address config resend-username)
                     blob-info (fm/get-blob-info email)
                     download-blobs-result (fm/download-blobs session blob-info)]
@@ -89,10 +84,10 @@
                                         (println "Step 8: Error moving email to Processed folder:" (:error-message move-email-to-processed-result))
                                         move-email-to-processed-result)
                                       ;; All steps succeeded
-                                      {:success true
-                                       :error false
+                                      {:success       true
+                                       :error         false
                                        :error-message nil
-                                       :value true})))))))))))))))))))
+                                       :value         true})))))))))))))))))))
 
 
 

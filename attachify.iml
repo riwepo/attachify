@@ -16,7 +16,7 @@
     <orderEntry type="library" name="Deps: commons-codec:1.16.1" level="project" />
     <orderEntry type="library" name="Deps: org.clojure/core.specs.alpha:0.4.74" level="project" />
     <orderEntry type="library" name="Deps: org.clojure/spec.alpha:0.5.238" level="project" />
-    <orderEntry type="library" name="Deps: com.taoensso/encore:3.153.1" level="project" />
+    <orderEntry type="library" name="Deps: com.taoensso/encore:3.159.0" level="project" />
     <orderEntry type="library" name="Deps: org.apache.httpcomponents/httpasyncclient:4.1.5" level="project" />
     <orderEntry type="library" name="Deps: com.fasterxml.jackson.dataformat/jackson-dataformat-cbor:2.20.0" level="project" />
     <orderEntry type="library" name="Deps: slingshot:0.12.2" level="project" />
@@ -26,10 +26,9 @@
     <orderEntry type="library" name="Deps: clj-http:3.13.1" level="project" />
     <orderEntry type="library" name="Deps: org.apache.httpcomponents/httpcore:4.4.16" level="project" />
     <orderEntry type="library" name="Deps: org.apache.httpcomponents/httpclient-cache:4.5.14" level="project" />
-    <orderEntry type="library" name="Deps: com.taoensso/truss:2.2.0" level="project" />
+    <orderEntry type="library" name="Deps: com.taoensso/truss:2.3.0" level="project" />
     <orderEntry type="library" name="Deps: riddley:0.1.12" level="project" />
     <orderEntry type="library" name="Deps: commons-logging:1.2" level="project" />
-    <orderEntry type="library" name="Deps: com.taoensso/timbre:6.8.0" level="project" />
     <orderEntry type="library" name="Deps: org.apache.httpcomponents/httpclient:4.5.14" level="project" />
     <orderEntry type="library" name="Deps: cheshire:6.1.0" level="project" />
     <orderEntry type="library" name="Deps: tigris:0.1.2" level="project" />
@@ -38,6 +37,6 @@
     <orderEntry type="library" name="Deps: potemkin:0.4.7" level="project" />
     <orderEntry type="library" name="Deps: org.apache.httpcomponents/httpmime:4.5.14" level="project" />
     <orderEntry type="library" name="Deps: com.fasterxml.jackson.dataformat/jackson-dataformat-smile:2.20.0" level="project" />
-    <orderEntry type="library" name="Deps: org.clj-commons/pretty:3.6.3" level="project" />
+    <orderEntry type="library" name="Deps: com.taoensso/telemere:1.2.0" level="project" />
   </component>
 </module>

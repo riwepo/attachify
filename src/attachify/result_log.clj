@@ -1,18 +1,18 @@
 (ns attachify.result-log
   (:require
-    [taoensso.timbre :refer [debug error]]
+    [taoensso.telemere :as tel]
     [attachify.result :refer [success failure]]))
 
 (defn log-and-failure [msg]
-  (error msg)
+  (tel/log! {:level :error, :success false :msg msg})
   (failure msg))
 
 (defn log-and-success
   ([]
-   (debug "Success")
+   (tel/log! {:level :debug, :success true})
    (success))
   ([object]
-   (debug "Success" object)
+   (tel/log! {:level :debug, :success true :value object})
    (success object)))
 
 

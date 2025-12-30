@@ -2,9 +2,11 @@
   (:require [clojure.string :as str]
             [clj-http.client :as http]
             [cheshire.core :as json]
-            [taoensso.timbre :refer [debug]]
+            [taoensso.telemere :as tel]
             [attachify.result :refer [success]]
-            [attachify.result-log :refer [log-and-success log-and-failure]])
+            [attachify.result-log :refer [log-and-success log-and-failure]]
+            [attachify.config :refer [load-config]]
+            [attachify.http :as http2])
   (:import [java.net URLEncoder]
            [java.nio.charset Charset StandardCharsets]))
 
@@ -15,8 +17,8 @@
     (str/replace auth-url-template "{hostname}" hostname)))
 
 (defn url-encode [data]
-  ;; Use URLEncoder/encode with the UTF-8 charset
   (^[String Charset] URLEncoder/encode data StandardCharsets/UTF_8))
+
 
 (defn fetch-session
   [config]
@@ -35,7 +37,17 @@
       (catch Exception e
         (log-and-failure (str "Error fetching session: " (.getMessage e)))))))
 
-
+(defn fetch-session-2
+  [config]
+  (let [auth-url (get-email-auth-url config)
+        api-token (:email-api-token config)
+        get-result (http2/get2 auth-url api-token)]
+    (if (:success get-result)
+      (let [session (:value get-result)]
+        (if (map? session)
+          (log-and-success (assoc session :api-token (:email-api-token config)))
+          (log-and-failure "Invalid session format")))
+      get-result)))
 
 (defn get-account-id [session]
   (get-in session [:primaryAccounts :urn:ietf:params:jmap:mail]))
@@ -93,6 +105,41 @@
           (log-and-failure (str "Failed to fetch identity info, status: " status))))
       (catch Exception e
         (log-and-failure (str "Error fetching identity info: " (.getMessage e)))))))
+
+(defn fetch-identity-info-2
+  [session]
+  (let [url (get-api-url session)
+        api-token (:api-token session)
+        account-id (get-account-id session)
+        request-body {:using       ["urn:ietf:params:jmap:core"
+                                    "urn:ietf:params:jmap:mail"
+                                    "urn:ietf:params:jmap:submission"]
+                      :methodCalls [["Identity/get"
+                                     {:accountId account-id
+                                      :ids       nil}
+                                     "a"]]}
+        post-result (http2/post2 url api-token request-body)]
+    (if (:success post-result)
+      (let [body (:value post-result)
+            method-responses (:methodResponses body)
+            error-response (first (filter #(= "error" (first %)) method-responses))
+            identity-get-response (first (filter #(= "Identity/get" (first %)) method-responses))]
+        (cond
+          error-response
+          (let [{:keys [arguments type]} (second error-response)
+                error-msg (str "API error: " type ", arguments: " arguments)]
+            (log-and-failure error-msg))
+
+          identity-get-response
+          (let [identity-info (get-in identity-get-response [1 :list])]
+            (if (sequential? identity-info)
+              (log-and-success (get-identity-id identity-info))
+              (log-and-failure "Identity/get response malformed")))
+
+          :else
+          (log-and-failure "Neither Identity/get nor error response found")))
+      post-result)))
+
 
 (defn fetch-mailbox-info
   [session]
@@ -313,7 +360,7 @@
                                 replace-nbsp)
                             ;; else keep raw bytes (e.g. images, pdfs)
                             bytes)]
-      (debug (str "Success - blob with id "  (:blobId blob) " downloaded"))
+      (tel/log! {:level :debug, :success true :blobId blob})
       (success decoded-content))
     (catch Exception e
       (log-and-failure (str "Failed to download or decode blob: " (.getMessage e))))))
@@ -427,7 +474,7 @@
 
         :else
         (log-and-failure (get-in email-set-response [1 :notCreated (keyword draft-id) :description]
-                                "Unknown error creating draft email"))))
+                                 "Unknown error creating draft email"))))
     (catch Exception e
       (log-and-failure (str "Exception creating draft email: " (.getMessage e))))))
 
@@ -439,7 +486,7 @@
          results []]
     (if (empty? remaining)
       (do
-        (debug "All attachments uploaded")
+        (tel/log! {:level :debug, :success true})
         (success results))
       (let [blob (first remaining)]
         (if (= (:role blob) :attachment)
@@ -485,7 +532,7 @@
 
           (and (>= status 200) (< status 300))
           (do
-            (debug (str "Success - email with id " email-id "submitted"))
+            (tel/log! {:level :debug, :success true :email-id email-id})
             (success email-id))
 
           :else
@@ -501,7 +548,7 @@
          results []]
     (if (empty? remaining)
       (do
-        (debug "Success - all blobs downloaded")
+        (tel/log! {:level :debug, :success true})
         (success
           (mapv
             (fn [blob download]
@@ -517,9 +564,10 @@
                  (conj results download-result)))))))
 
 
-
-
-
 (comment
+  (def config (load-config))
+  (def fetch-session-2-result (fetch-session-2 config))
+  (def session (:value fetch-session-2-result))
+  (fetch-identity-info-2 session)
   nil)
 
