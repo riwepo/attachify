@@ -1,16 +1,20 @@
-(ns attachify.result
-  (:require [taoensso.timbre :as timbre]))
+(ns attachify.result)
 
 (defn failure [msg]
-  (timbre/error msg)
   {:success       false
    :error         true
    :error-message msg
    :value         nil})
 
-(defn success [value msg]
-  (timbre/debug msg)
-  {:success       true
-   :error         false
-   :error-message nil
-   :value         value})
+(defn success
+  ([]
+   {:success       true
+    :error         false
+    :error-message nil
+    :value         true})
+  ([value]
+   {:success       true
+    :error         false
+    :error-message nil
+    :value         value}))
+

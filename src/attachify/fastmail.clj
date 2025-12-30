@@ -2,10 +2,11 @@
   (:require [clojure.string :as str]
             [clj-http.client :as http]
             [cheshire.core :as json]
-            [taoensso.timbre :as timbre]
-            [attachify.result :as result])
+            [taoensso.timbre :refer [debug]]
+            [attachify.result :refer [success]]
+            [attachify.result-log :refer [log-and-success log-and-failure]])
   (:import [java.net URLEncoder]
-           [java.nio.charset StandardCharsets]))
+           [java.nio.charset Charset StandardCharsets]))
 
 (defn get-email-auth-url
   [config]
@@ -15,7 +16,7 @@
 
 (defn url-encode [data]
   ;; Use URLEncoder/encode with the UTF-8 charset
-  (URLEncoder/encode data StandardCharsets/UTF_8))
+  (^[String Charset] URLEncoder/encode data StandardCharsets/UTF_8))
 
 (defn fetch-session
   [config]
@@ -28,11 +29,11 @@
         (if (and (>= status 200) (< status 300))
           (let [session (:body response)]
             (if (map? session)
-              (result/success (assoc session :api-token (:email-api-token config)), "Fetched session")
-              (result/failure "Invalid session format")))
-          (result/failure (str "Failed to fetch session, status: " status))))
-    (catch Exception e
-      (result/failure (str "Error fetching session: " (.getMessage e)))))))
+              (log-and-success (assoc session :api-token (:email-api-token config)))
+              (log-and-failure "Invalid session format")))
+          (log-and-failure (str "Failed to fetch session, status: " status))))
+      (catch Exception e
+        (log-and-failure (str "Error fetching session: " (.getMessage e)))))))
 
 
 
@@ -79,19 +80,19 @@
               error-response
               (let [{:keys [arguments type]} (second error-response)
                     error-msg (str "API error: " type ", arguments: " arguments)]
-                (result/failure error-msg))
+                (log-and-failure error-msg))
 
               identity-get-response
               (let [identity-info (get-in identity-get-response [1 :list])]
                 (if (sequential? identity-info)
-                  (result/success identity-info (str "Fetched identity info with id '" (get-identity-id identity-info) "'"))
-                  (result/failure "Identity/get response malformed")))
+                  (log-and-success (get-identity-id identity-info))
+                  (log-and-failure "Identity/get response malformed")))
 
               :else
-              (result/failure "Neither Identity/get nor error response found")))
-          (result/failure (str "Failed to fetch identity info, status: " status))))
+              (log-and-failure "Neither Identity/get nor error response found")))
+          (log-and-failure (str "Failed to fetch identity info, status: " status))))
       (catch Exception e
-        (result/failure (str "Error fetching identity info: " (.getMessage e)))))))
+        (log-and-failure (str "Error fetching identity info: " (.getMessage e)))))))
 
 (defn fetch-mailbox-info
   [session]
@@ -118,17 +119,17 @@
               error-response
               (let [{:keys [arguments type]} (second error-response)
                     error-msg (str "API error: " type ", arguments: " arguments)]
-                (result/failure error-msg))
+                (log-and-failure error-msg))
 
               mailbox-get-response
               (let [result (:list (second mailbox-get-response))]
-                (result/success result (str "Fetched mailbox info" result))))
+                (log-and-success result))
 
               :else
-              (result/failure "Neither Mailbox/get nor error response found")))
-          (result/failure (str "Failed to fetch mailbox info, status: " status))))
+              (log-and-failure "Neither Mailbox/get nor error response found")))
+          (log-and-failure (str "Failed to fetch mailbox info, status: " status))))
       (catch Exception e
-        (result/failure (str "Error fetching mailbox info: " (.getMessage e)))))))
+        (log-and-failure (str "Error fetching mailbox info: " (.getMessage e)))))))
 
 
 
@@ -171,16 +172,16 @@
               error-response
               (let [{:keys [arguments type]} (second error-response)
                     error-msg (str "API error: " type ", arguments: " arguments)]
-                (result/failure error-msg))
+                (log-and-failure error-msg))
 
               email-query-response
-              (result/success (:ids (second email-query-response)))
+              (log-and-success (:ids (second email-query-response)))
 
               :else
-              (result/failure "Neither Email/query nor error response found")))
-          (result/failure (str "Failed to fetch email ids, status: " status))))
+              (log-and-failure "Neither Email/query nor error response found")))
+          (log-and-failure (str "Failed to fetch email ids, status: " status))))
       (catch Exception e
-        (result/failure (str "Error fetching email ids: " (.getMessage e)))))))
+        (log-and-failure (str "Error fetching email ids: " (.getMessage e)))))))
 
 
 (defn fetch-email
@@ -196,8 +197,8 @@
                         "a"]]}
           response (http/post (get-api-url session)
                               {:headers headers
-                               :body (json/encode query-body)
-                               :as :auto})
+                               :body    (json/encode query-body)
+                               :as      :auto})
           body (:body response)
           method-responses (:methodResponses body)
           error-response (first (filter #(= "error" (first %)) method-responses))
@@ -206,19 +207,19 @@
         error-response
         (let [{:keys [arguments type]} (second error-response)
               error-msg (str "API error: " type ", arguments: " arguments)]
-          (result/failure error-msg))
+          (log-and-failure error-msg))
 
         email-get-response
         (let [emails (:list (second email-get-response))
               email (first emails)]
           (if email
-            (result/success email)
-            (result/failure (str "Email with id " email-id " not found"))))
+            (log-and-success email)
+            (log-and-failure (str "Email with id " email-id " not found"))))
 
         :else
-        (result/failure "Neither Email/get nor error response found")))
+        (log-and-failure "Neither Email/get nor error response found")))
     (catch Exception e
-      (result/failure (str "Exception fetching email by id: " (.getMessage e))))))
+      (log-and-failure (str "Exception fetching email by id: " (.getMessage e))))))
 
 
 (defn get-to-address [email]
@@ -230,7 +231,7 @@
    "image/gif"       ".gif"
    "image/svg+xml"   ".svg"
    "application/pdf" ".pdf"})
-;; add more mappings as needed
+
 
 (defn add-extension-if-missing
   [filename ext]
@@ -263,25 +264,25 @@
         error-response
         (let [{:keys [arguments type]} (second error-response)
               error-msg (str "API error: " type ", arguments: " arguments)]
-          (result/failure error-msg))
+          (log-and-failure error-msg))
 
         (or (nil? email-set-response) (seq not-created))
-        (result/failure (str "Failed to move email " email-id " to mailbox " mailbox-id
-                             ". Details: " not-created))
+        (log-and-failure (str "Failed to move email " email-id " to mailbox " mailbox-id
+                              ". Details: " not-created))
 
         :else
-        (result/success true)))
+        (log-and-success)))
     (catch Exception e
-      (result/failure (str "Exception during move-email-to-mailbox: " (.getMessage e))))))
+      (log-and-failure (str "Exception during move-email-to-mailbox: " (.getMessage e))))))
 
 (defn bytes->string
-  [byte-array & {:keys [charset] :or {charset "UTF-8"}}]
+  [^bytes byte-array & {:keys [^String charset] :or {charset "UTF-8"}}]
   (String. byte-array charset))
 
-(defn strip-bom [s]
-  (if (.startsWith s "\uFEFF")
-    (subs s 1)
-    s))
+;(defn strip-bom [s]
+;  (if (.startsWith s "\uFEFF")
+;    (subs s 1)
+;    s))
 
 (defn replace-nbsp
   [s]
@@ -312,9 +313,10 @@
                                 replace-nbsp)
                             ;; else keep raw bytes (e.g. images, pdfs)
                             bytes)]
-      (result/success decoded-content))
+      (debug (str "Success - blob with id "  (:blobId blob) " downloaded"))
+      (success decoded-content))
     (catch Exception e
-      (result/failure (str "Failed to download or decode blob: " (.getMessage e))))))
+      (log-and-failure (str "Failed to download or decode blob: " (.getMessage e))))))
 
 
 (defn upload-blob
@@ -323,9 +325,9 @@
     (let [upload-url (-> (get-upload-url session)
                          (str/replace "{accountId}" (get-account-id session)))
           headers {"Authorization" (str "Bearer " (:api-token session))
-                   "Content-Type" (:type blob)}
-          response (http/post upload-url {:headers headers
-                                          :body (:value blob)
+                   "Content-Type"  (:type blob)}
+          response (http/post upload-url {:headers          headers
+                                          :body             (:value blob)
                                           :throw-exceptions false})
           status (:status response)
           content-type (some-> (get-in response [:headers "Content-Type"])
@@ -334,31 +336,31 @@
                  (json/parse-string (:body response) true)
                  nil)]
       (if (and (= status 200) (contains? body :blobId))
-        (result/success (:blobId body))
-        (result/failure (str "Upload failed with status " status " and body: " body))))
+        (log-and-success (:blobId body))
+        (log-and-failure (str "Upload failed with status " status " and body: " body))))
     (catch Exception e
-      (result/failure (str "Exception during upload: " (.getMessage e))))))
+      (log-and-failure (str "Exception during upload: " (.getMessage e))))))
 
 (defn get-blob-info
   [email]
   (let [text-blobs (map (fn [part]
-                          {:role :textBody
+                          {:role   :textBody
                            :blobId (:blobId part)
-                           :type (:type part)})
+                           :type   (:type part)})
                         (:textBody email))
         html-blobs (map (fn [part]
-                          {:role :htmlBody
+                          {:role   :htmlBody
                            :blobId (:blobId part)
-                           :type (:type part)})
+                           :type   (:type part)})
                         (:htmlBody email))
         attachment-blobs (map (fn [att]
-                                {:role :attachment
-                                 :name (:name att)
+                                {:role   :attachment
+                                 :name   (:name att)
                                  :blobId (:blobId att)
-                                 :type (:type att)})
+                                 :type   (:type att)})
                               (:attachments email))]
     (->> (concat text-blobs html-blobs attachment-blobs)
-         (filter #(some :blobId [%])) ;; only keep entries with blobId
+         (filter #(some :blobId [%]))                       ;; only keep entries with blobId
          (map #(select-keys % [:role :blobId :type :name]))
          (into []))))
 
@@ -375,20 +377,20 @@
                          (map (fn [att]
                                 (let [old-id (:blobId att)
                                       new-id (get id-map old-id)]
-                                  {:name (:name att)
-                                   :blobId new-id
-                                   :type (:type att)
+                                  {:name        (:name att)
+                                   :blobId      new-id
+                                   :type        (:type att)
                                    :disposition "attachment"})))
                          vec)]
-    {:from [{:email from-address}]
-     :to [{:email to-address}]
-     :mailboxIds {drafts-id true}
-     :subject subject
-     :textBody (when text [{:partId "text"}])
-     :htmlBody (when html [{:partId "html"}])
-     :bodyValues (cond-> {}
-                         text (assoc "text" {:value text :charset "utf-8"})
-                         html (assoc "html" {:value html :charset "utf-8"}))
+    {:from        [{:email from-address}]
+     :to          [{:email to-address}]
+     :mailboxIds  {drafts-id true}
+     :subject     subject
+     :textBody    (when text [{:partId "text"}])
+     :htmlBody    (when html [{:partId "html"}])
+     :bodyValues  (cond-> {}
+                          text (assoc "text" {:value text :charset "utf-8"})
+                          html (assoc "html" {:value html :charset "utf-8"}))
      :attachments attachments}))
 
 
@@ -399,15 +401,15 @@
           draft-id "draft_message"
           method-calls [["Email/set"
                          {:accountId account-id
-                          :create {draft-id email-object}}
+                          :create    {draft-id email-object}}
                          "0"]]
-          request-body {:using ["urn:ietf:params:jmap:core" "urn:ietf:params:jmap:mail"]
+          request-body {:using       ["urn:ietf:params:jmap:core" "urn:ietf:params:jmap:mail"]
                         :methodCalls method-calls}
           response (http/post (get-api-url session)
                               {:headers {"Authorization" (str "Bearer " (:api-token session))
-                                         "Content-Type" "application/json; charset=utf-8"}
-                               :body (json/encode request-body)
-                               :as :auto})
+                                         "Content-Type"  "application/json; charset=utf-8"}
+                               :body    (json/encode request-body)
+                               :as      :auto})
           body (:body response)
           method-responses (:methodResponses body)
           error-response (first (filter #(= "error" (first %)) method-responses))
@@ -418,16 +420,16 @@
         error-response
         (let [{:keys [arguments type]} (second error-response)
               error-msg (str "API error: " type ", arguments: " arguments)]
-          (result/failure error-msg))
+          (log-and-failure error-msg))
 
         real-email-id
-        (result/success real-email-id)
+        (log-and-success real-email-id)
 
         :else
-        (result/failure (get-in email-set-response [1 :notCreated (keyword draft-id) :description]
+        (log-and-failure (get-in email-set-response [1 :notCreated (keyword draft-id) :description]
                                 "Unknown error creating draft email"))))
     (catch Exception e
-      (result/failure (str "Exception creating draft email: " (.getMessage e))))))
+      (log-and-failure (str "Exception creating draft email: " (.getMessage e))))))
 
 
 
@@ -436,17 +438,19 @@
   (loop [remaining blobs
          results []]
     (if (empty? remaining)
-      (result/success results)
+      (do
+        (debug "All attachments uploaded")
+        (success results))
       (let [blob (first remaining)]
         (if (= (:role blob) :attachment)
           (let [upload-result (upload-blob session blob)]
             (if (:error upload-result)
-              (result/failure (:error-message upload-result))
+              (log-and-failure (:error-message upload-result))
               (recur (rest remaining)
-                     (conj results {:role (:role blob)
+                     (conj results {:role   (:role blob)
                                     :blobId {:old (:blobId blob)
                                              :new (:value upload-result)}
-                                    :type (:type blob)}))))
+                                    :type   (:type blob)}))))
           ;; Not an attachment, skip it
           (recur (rest remaining) results))))))
 
@@ -458,9 +462,9 @@
         email-submission {:emailId email-id :identityId identity-id}
         method-calls [["EmailSubmission/set"
                        {:accountId account-id
-                        :create {submission-id email-submission}}
+                        :create    {submission-id email-submission}}
                        "0"]]
-        request-body {:using ["urn:ietf:params:jmap:core" "urn:ietf:params:jmap:mail" "urn:ietf:params:jmap:submission"]
+        request-body {:using       ["urn:ietf:params:jmap:core" "urn:ietf:params:jmap:mail" "urn:ietf:params:jmap:submission"]
                       :methodCalls method-calls}
         headers {"Authorization" (str "Bearer " (:api-token session))
                  "Content-Type"  "application/json; charset=utf-8"}]
@@ -477,15 +481,17 @@
           error-response
           (let [{:keys [arguments type]} (second error-response)
                 error-msg (str "API error: " type ", arguments: " arguments)]
-            (result/failure error-msg))
+            (log-and-failure error-msg))
 
           (and (>= status 200) (< status 300))
-          (result/success true)
+          (do
+            (debug (str "Success - email with id " email-id "submitted"))
+            (success email-id))
 
           :else
-          (result/failure (str "Failed to submit email, status: " status))))
+          (log-and-failure (str "Failed to submit email, status: " status))))
       (catch Exception e
-        (result/failure (str "Error submitting email: " (.getMessage e)))))))
+        (log-and-failure (str "Error submitting email: " (.getMessage e)))))))
 
 
 
@@ -494,17 +500,19 @@
   (loop [remaining blob-info
          results []]
     (if (empty? remaining)
-      (result/success
-        (mapv
-          (fn [blob download]
-            (assoc blob :value (:value download)))
-          blob-info
-          results))
+      (do
+        (debug "Success - all blobs downloaded")
+        (success
+          (mapv
+            (fn [blob download]
+              (assoc blob :value (:value download)))
+            blob-info
+            results)))
       (let [blob (first remaining)
-            filename (str (name (:role blob))) ;; Use role name as filename base
+            filename (str (name (:role blob)))              ;; Use role name as filename base
             download-result (download-blob session blob filename)]
         (if (:error download-result)
-          (result/failure (:error-message download-result))
+          (log-and-failure (:error-message download-result))
           (recur (rest remaining)
                  (conj results download-result)))))))
 
@@ -513,5 +521,5 @@
 
 
 (comment
-   nil)
+  nil)
 
