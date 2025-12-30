@@ -10,15 +10,8 @@
   (:import [java.net URLEncoder]
            [java.nio.charset Charset StandardCharsets]))
 
-(defn get-email-auth-url
-  [config]
-  (let [hostname (:email-hostname config)
-        auth-url-template (:email-auth-url config)]
-    (str/replace auth-url-template "{hostname}" hostname)))
-
 (defn url-encode [data]
   (^[String Charset] URLEncoder/encode data StandardCharsets/UTF_8))
-
 
 (defn fetch-session
   [config]
