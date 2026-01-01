@@ -1,6 +1,6 @@
 (ns attachify.fastmail
   (:require [clojure.string :as str]
-            [clj-http.client :as http]
+            ;[clj-http.client :as http]
             [cheshire.core :as json]
             [taoensso.telemere :as tel]
             [attachify.result :refer [success]]
@@ -77,7 +77,7 @@
       post-result)))
 
 
-(defn fetch-mailbox-info
+(defn fetch-mailbox-info-old
   [session]
   (let [headers {"Authorization" (str "Bearer " (:api-token session))
                  "Content-Type"  "application/json; charset=utf-8"}
@@ -114,7 +114,37 @@
       (catch Exception e
         (log-and-failure (str "Error fetching mailbox info: " (.getMessage e)))))))
 
+(defn fetch-mailbox-info
+  [session]
+  (let [url (get-api-url session)
+        api-token (:api-token session)
+        account-id (get-account-id session)
+        request-body {:using ["urn:ietf:params:jmap:core" "urn:ietf:params:jmap:mail"]
+                      :methodCalls
+                      [["Mailbox/get"
+                        {:accountId account-id
+                         :ids       nil}
+                        "a"]]}
+        post-result (http2/post2 url api-token request-body)]
+    (if (:success post-result)
+      (let [response (:value post-result)
+            response-body (:body response)
+            method-responses (:methodResponses response-body)
+            error-response (first (filter #(= "error" (first %)) method-responses))
+            mailbox-get-response (first (filter #(= "Mailbox/get" (first %)) method-responses))]
+        (cond
+          error-response
+          (let [{:keys [arguments type]} (second error-response)
+                error-msg (str "API error: " type ", arguments: " arguments)]
+            (log-and-failure error-msg))
 
+          mailbox-get-response
+          (let [result (:list (second mailbox-get-response))]
+            (log-and-success result))
+
+          :else
+          (log-and-failure "Neither Mailbox/get nor error response found")))
+      post-result)))
 
 (defn get-mailbox-id-by-name
   [mailbox-info mailbox-name]
