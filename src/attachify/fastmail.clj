@@ -5,7 +5,7 @@
             [taoensso.telemere :as tel]
             [attachify.result :refer [success]]
             [attachify.result-log :refer [log-and-success log-and-failure]]
-            [attachify.config :refer [load-config]]
+            [attachify.config :refer [load-config get-email-auth-url]]
             [attachify.http :as http2])
   (:import [java.net URLEncoder]
            [java.nio.charset Charset StandardCharsets]))
@@ -15,26 +15,10 @@
 
 (defn fetch-session
   [config]
-  (let [headers {"Authorization" (str "Bearer " (:email-api-token config))
-                 "Content-Type"  "application/json; charset=utf-8"}
-        auth-url (get-email-auth-url config)]
-    (try
-      (let [response (http/get auth-url {:headers headers :as :json})
-            status (:status response)]
-        (if (and (>= status 200) (< status 300))
-          (let [session (:body response)]
-            (if (map? session)
-              (log-and-success (assoc session :api-token (:email-api-token config)))
-              (log-and-failure "Invalid session format")))
-          (log-and-failure (str "Failed to fetch session, status: " status))))
-      (catch Exception e
-        (log-and-failure (str "Error fetching session: " (.getMessage e)))))))
-
-(defn fetch-session-2
-  [config]
   (let [auth-url (get-email-auth-url config)
         api-token (:email-api-token config)
         get-result (http2/get2 auth-url api-token)]
+    (println get-result)
     (if (:success get-result)
       (let [session (:value get-result)]
         (if (map? session)
@@ -59,47 +43,6 @@
   (get-in identity-info [0 :id]))
 
 (defn fetch-identity-info
-  [session]
-  (let [headers {"Authorization" (str "Bearer " (:api-token session))
-                 "Content-Type"  "application/json; charset=utf-8"}
-        account-id (get-account-id session)
-        request-body {:using       ["urn:ietf:params:jmap:core"
-                                    "urn:ietf:params:jmap:mail"
-                                    "urn:ietf:params:jmap:submission"]
-                      :methodCalls [["Identity/get"
-                                     {:accountId account-id
-                                      :ids       nil}
-                                     "a"]]}]
-    (try
-      (let [response (http/post (get-api-url session)
-                                {:headers headers
-                                 :body    (json/encode request-body)
-                                 :as      :auto})
-            status (:status response)
-            body (:body response)]
-        (if (and (>= status 200) (< status 300))
-          (let [method-responses (:methodResponses body)
-                error-response (first (filter #(= "error" (first %)) method-responses))
-                identity-get-response (first (filter #(= "Identity/get" (first %)) method-responses))]
-            (cond
-              error-response
-              (let [{:keys [arguments type]} (second error-response)
-                    error-msg (str "API error: " type ", arguments: " arguments)]
-                (log-and-failure error-msg))
-
-              identity-get-response
-              (let [identity-info (get-in identity-get-response [1 :list])]
-                (if (sequential? identity-info)
-                  (log-and-success (get-identity-id identity-info))
-                  (log-and-failure "Identity/get response malformed")))
-
-              :else
-              (log-and-failure "Neither Identity/get nor error response found")))
-          (log-and-failure (str "Failed to fetch identity info, status: " status))))
-      (catch Exception e
-        (log-and-failure (str "Error fetching identity info: " (.getMessage e)))))))
-
-(defn fetch-identity-info-2
   [session]
   (let [url (get-api-url session)
         api-token (:api-token session)
@@ -559,8 +502,8 @@
 
 (comment
   (def config (load-config))
-  (def fetch-session-2-result (fetch-session-2 config))
+  (def fetch-session-2-result (fetch-session config))
   (def session (:value fetch-session-2-result))
-  (fetch-identity-info-2 session)
+  (fetch-identity-info session)
   nil)
 
