@@ -1,6 +1,7 @@
 (ns attachify.http-test
   (:require [clojure.test :as t]
             [clj-http.client :as http]
+            [attachify.result :refer [success? failure?]]
             [attachify.config :refer :all]
             [attachify.http :refer :all]))
 
@@ -14,21 +15,21 @@
     (with-redefs [http/get mock-get]
       (let [result (get2 bad-url token)]
         (println result)
-        (t/is (= true (:error result)))
-        (t/is (= "Error 404 http/get URL some-dodgy-url" (:error-message result)))))))
+        (t/is (failure? result))
+        (t/is (= "Error 404 http/get URL some-dodgy-url" (:error result)))))))
 
 (t/deftest get2-bad-token-test
   (let [config (load-config)
         url (get-email-auth-url config)
         token "some-dodgy-token"
         mock-get (fn [_url _opts]
-                   {:status 404
-                    :body "Not Found"})]
+                   {:status 401
+                    :body "Not Authorized"})]
     (with-redefs [http/get mock-get]
       (let [result (get2 url token)]
         (println result)
-        (t/is (= true (:error result)))
-        (t/is (= "Error 404 http/get URL https://api.fastmail.com/.well-known/jmap" (:error-message result)))))))
+        (t/is (failure? result))
+        (t/is (= "Error 401 http/get URL https://api.fastmail.com/.well-known/jmap" (:error result)))))))
 
 (t/deftest get2-success-test
   (let [config (load-config)
@@ -40,6 +41,6 @@
     (with-redefs [http/get mock-get]
       (let [result (get2 url token)]
         (println result)
-        (t/is (= true (:success result)))
+        (t/is (success? result))
         (t/is (= "the body" (:value result)))))))
 

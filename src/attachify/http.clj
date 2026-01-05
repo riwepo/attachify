@@ -1,7 +1,6 @@
 (ns attachify.http
   (:require [clj-http.client :as http]
             [cheshire.core :as json]
-            [taoensso.telemere :as tel]
             [attachify.result :refer [success]]
             [attachify.result-log :refer [log-and-success log-and-failure]]))
 
