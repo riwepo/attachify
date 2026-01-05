@@ -4,16 +4,21 @@
     [attachify.result :refer [success failure]]))
 
 (defn log-and-failure [msg]
-  (tel/log! {:level :error, :success false :msg msg})
-  (failure msg))
+  (let [result (failure msg)]
+    (tel/log! {:level :error, :result result})
+    result))
 
 (defn log-and-success
   ([]
-   (tel/log! {:level :debug, :success true})
-   (success))
+   (let [result (success)]
+     (tel/log! {:level :debug, :result result})
+     result))
   ([object]
-   (tel/log! {:level :debug, :success true :value object})
-   (success object)))
+   (let [result (success object)]
+     (tel/log! {:level :debug, :result result})
+     result)))
+
+
 
 
 

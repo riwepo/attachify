@@ -1,9 +1,9 @@
 (ns attachify.fastmail
   (:require [clojure.string :as str]
-            ;[clj-http.client :as http]
+            [clj-http.client :as http]
             [cheshire.core :as json]
             [taoensso.telemere :as tel]
-            [attachify.result :refer [success]]
+            [attachify.result :refer [success success?]]
             [attachify.result-log :refer [log-and-success log-and-failure]]
             [attachify.config :refer [load-config get-email-auth-url]]
             [attachify.http :as http2])
@@ -19,7 +19,7 @@
         api-token (:email-api-token config)
         get-result (http2/get2 auth-url api-token)]
     (println get-result)
-    (if (:success get-result)
+    (if (success? get-result)
       (let [session (:value get-result)]
         (if (map? session)
           (log-and-success (assoc session :api-token (:email-api-token config)))
@@ -55,7 +55,7 @@
                                       :ids       nil}
                                      "a"]]}
         post-result (http2/post2 url api-token request-body)]
-    (if (:success post-result)
+    (if (success? post-result)
       (let [body (:value post-result)
             method-responses (:methodResponses body)
             error-response (first (filter #(= "error" (first %)) method-responses))
@@ -126,7 +126,7 @@
                          :ids       nil}
                         "a"]]}
         post-result (http2/post2 url api-token request-body)]
-    (if (:success post-result)
+    (if (success? post-result)
       (let [response (:value post-result)
             response-body (:body response)
             method-responses (:methodResponses response-body)

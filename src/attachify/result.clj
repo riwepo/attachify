@@ -1,20 +1,21 @@
 (ns attachify.result)
 
 (defn failure [msg]
-  {:success       false
-   :error         true
-   :error-message msg
-   :value         nil})
+  {:status :error
+   :error  msg})
 
 (defn success
   ([]
-   {:success       true
-    :error         false
-    :error-message nil
-    :value         true})
+   {:status :ok})
   ([value]
-   {:success       true
-    :error         false
-    :error-message nil
-    :value         value}))
+   {:status :ok
+    :value  value}))
+
+(defn success?
+  [result]
+  (= :ok (:status result)))
+
+(defn failure?
+  [result]
+  (not= :ok (:status result)))
 

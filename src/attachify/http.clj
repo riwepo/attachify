@@ -3,7 +3,7 @@
             [cheshire.core :as json]
             [taoensso.telemere :as tel]
             [attachify.result :refer [success]]
-            [attachify.result-log :refer [log-and-failure]]))
+            [attachify.result-log :refer [log-and-success log-and-failure]]))
 
 (defn get2 [url api-token]
   (let [headers {"Authorization" (str "Bearer " api-token)
@@ -13,7 +13,7 @@
             status (:status response)]
         (if (= status 200)
           (do
-            (tel/log! {:level :debug, :success true})
+            (log-and-success)
             (success (:body response)))
           (log-and-failure (str "Error " status " http/get URL " url))))
       (catch Exception e
@@ -29,7 +29,7 @@
             status (:status response)]
         (if (= status 200)
           (do
-            (tel/log! {:level :debug, :success true})
+            (log-and-success)
             (success (:body response)))
           (log-and-failure (str "Error " status " http/post URL " url))))
       (catch Exception e
