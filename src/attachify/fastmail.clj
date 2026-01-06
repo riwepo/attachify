@@ -52,14 +52,7 @@
             method-responses (:methodResponses body)
             error-response (first (filter #(= "error" (first %)) method-responses))
             identity-get-response (first (filter #(= "Identity/get" (first %)) method-responses))]
-        (println "body")
-        (pprint body)
-        (println "method responses")
-        (pprint method-responses)
-        (println "error response")
-        (pprint error-response)
-        (println "identity get response")
-        (pprint identity-get-response)
+
         (cond
           error-response
           (let [{:keys [arguments type]} (second error-response)
@@ -127,11 +120,11 @@
                         "a"]]}
         post-result (http2/post2 url api-token request-body)]
     (if (success? post-result)
-      (let [response (:value post-result)
-            response-body (:body response)
-            method-responses (:methodResponses response-body)
+      (let [body (:value post-result)
+            method-responses (:methodResponses body)
             error-response (first (filter #(= "error" (first %)) method-responses))
             mailbox-get-response (first (filter #(= "Mailbox/get" (first %)) method-responses))]
+        (println mailbox-get-response)
         (cond
           error-response
           (let [{:keys [arguments type]} (second error-response)
@@ -144,7 +137,7 @@
 
           :else
           (log-and-failure "Neither Mailbox/get nor error response found")))
-      post-result)))
+      (log-and-failure (:error post-result)))))
 
 (defn get-mailbox-id-by-name
   [mailbox-info mailbox-name]
