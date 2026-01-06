@@ -1,12 +1,14 @@
 (ns attachify.result-log
   (:require
+    [clojure.string :as str]
     [taoensso.telemere :as tel]
     [attachify.result :refer [success failure]]))
 
 (tel/set-min-level! :debug)
 
-(defn log-and-failure [msg]
-  (let [result (failure msg)]
+(defn log-and-failure [& msgs]
+  (let [combined-msg (str/join " " msgs)
+        result (failure combined-msg)]
     (tel/log! {:level :error, :data result})
     result))
 
