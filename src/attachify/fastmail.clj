@@ -1,5 +1,6 @@
 (ns attachify.fastmail
   (:require [clojure.string :as str]
+            [clojure.pprint :refer [pprint]]
             [clj-http.client :as http]
             [cheshire.core :as json]
             [taoensso.telemere :as tel]
@@ -22,21 +23,12 @@
     (if (success? get-result)
       (let [session (:value get-result)]
         (if (map? session)
-          (log-and-success (assoc session :api-token (:email-api-token config)))
+          (log-and-success (assoc session :apiToken (:email-api-token config)))
           (log-and-failure "Invalid session format")))
       get-result)))
 
 (defn get-account-id [session]
   (get-in session [:primaryAccounts :urn:ietf:params:jmap:mail]))
-
-(defn get-download-url [session]
-  (:downloadUrl session))
-
-(defn get-upload-url [session]
-  (:uploadUrl session))
-
-(defn get-api-url [session]
-  (:apiUrl session))
 
 (defn get-identity-id
   [identity-info]
@@ -44,8 +36,8 @@
 
 (defn fetch-identity-info
   [session]
-  (let [url (get-api-url session)
-        api-token (:api-token session)
+  (let [url (:apiUrl session)
+        api-token (:apiToken session)
         account-id (get-account-id session)
         request-body {:using       ["urn:ietf:params:jmap:core"
                                     "urn:ietf:params:jmap:mail"
@@ -60,6 +52,14 @@
             method-responses (:methodResponses body)
             error-response (first (filter #(= "error" (first %)) method-responses))
             identity-get-response (first (filter #(= "Identity/get" (first %)) method-responses))]
+        (println "body")
+        (pprint body)
+        (println "method responses")
+        (pprint method-responses)
+        (println "error response")
+        (pprint error-response)
+        (println "identity get response")
+        (pprint identity-get-response)
         (cond
           error-response
           (let [{:keys [arguments type]} (second error-response)
@@ -74,7 +74,7 @@
 
           :else
           (log-and-failure "Neither Identity/get nor error response found")))
-      post-result)))
+      (log-and-failure (:error post-result)))))
 
 
 (defn fetch-mailbox-info-old
@@ -88,7 +88,7 @@
                        :ids       nil}
                       "a"]]}]
     (try
-      (let [response (http/post (get-api-url session)
+      (let [response (http/post (:apiUrl session)
                                 {:headers headers
                                  :body    (json/encode query-body)
                                  :as      :auto})
@@ -116,8 +116,8 @@
 
 (defn fetch-mailbox-info
   [session]
-  (let [url (get-api-url session)
-        api-token (:api-token session)
+  (let [url (:apiUrl session)
+        api-token (:apiToken session)
         account-id (get-account-id session)
         request-body {:using ["urn:ietf:params:jmap:core" "urn:ietf:params:jmap:mail"]
                       :methodCalls
@@ -171,7 +171,7 @@
                        :filter    {:inMailbox mailbox-id}}
                       "a"]]}]
     (try
-      (let [response (http/post (get-api-url session)
+      (let [response (http/post (:apiUrl session)
                                 {:headers headers
                                  :body    (json/encode query-body)
                                  :as      :auto})
@@ -208,7 +208,7 @@
                         {:accountId (get-account-id session)
                          :ids       [email-id]}
                         "a"]]}
-          response (http/post (get-api-url session)
+          response (http/post (:apiUrl session)
                               {:headers headers
                                :body    (json/encode query-body)
                                :as      :auto})
@@ -264,7 +264,7 @@
                              {:accountId (get-account-id session)
                               :update    {email-id {:mailboxIds {mailbox-id true}}}}
                              "a"]]}
-          response (http/post (get-api-url session)
+          response (http/post (:apiUrl session)
                               {:headers headers
                                :body    (json/encode set-msg-payload)
                                :as      :auto})
@@ -309,7 +309,7 @@
           filename-with-ext (add-extension-if-missing filename ext)
           encoded-filename (url-encode filename-with-ext)
           encoded-type (url-encode (:type blob))
-          download-url (-> (get-download-url session)
+          download-url (-> (:downloadUrl session)
                            (str/replace "{accountId}" (get-account-id session))
                            (str/replace "{blobId}" (:blobId blob))
                            (str/replace "{name}" encoded-filename)
@@ -335,7 +335,7 @@
 (defn upload-blob
   [session blob]
   (try
-    (let [upload-url (-> (get-upload-url session)
+    (let [upload-url (-> (:uploadUrl session)
                          (str/replace "{accountId}" (get-account-id session)))
           headers {"Authorization" (str "Bearer " (:api-token session))
                    "Content-Type"  (:type blob)}
@@ -418,7 +418,7 @@
                          "0"]]
           request-body {:using       ["urn:ietf:params:jmap:core" "urn:ietf:params:jmap:mail"]
                         :methodCalls method-calls}
-          response (http/post (get-api-url session)
+          response (http/post (:apiUrl session)
                               {:headers {"Authorization" (str "Bearer " (:api-token session))
                                          "Content-Type"  "application/json; charset=utf-8"}
                                :body    (json/encode request-body)
@@ -482,7 +482,7 @@
         headers {"Authorization" (str "Bearer " (:api-token session))
                  "Content-Type"  "application/json; charset=utf-8"}]
     (try
-      (let [response (http/post (get-api-url session)
+      (let [response (http/post (:apiUrl session)
                                 {:headers headers
                                  :body    (json/encode request-body)
                                  :as      :auto})
@@ -532,8 +532,8 @@
 
 (comment
   (def config (load-config))
-  (def fetch-session-2-result (fetch-session config))
-  (def session (:value fetch-session-2-result))
+  (def fetch-session-result (fetch-session config))
+  (def session (:value fetch-session-result))
   (fetch-identity-info session)
   nil)
 

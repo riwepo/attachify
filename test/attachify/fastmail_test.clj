@@ -36,6 +36,37 @@
         (t/is (res/success? result))
         (t/is (= mock-session (:value result)))))))
 
+(t/deftest fetch-identity-info-post2-fail-test
+  (let [error-message "post2 fail"
+        mock-session {:apiUrl "url" :apiToken "token"}
+        mock-post2 (fn [_url _api-token _request_body]
+                     (res/failure error-message))]
+    (with-redefs [http/post2 mock-post2]
+      (let [result (fm/fetch-identity-info mock-session)]
+        (t/is (res/failure? result))
+        (t/is (= error-message (:error result)))))))
+
+(t/deftest fetch-identity-info-format-fail-test
+  (let [error-message "Neither Identity/get nor error response found"
+        mock-session {:apiUrl "url" :apiToken "token"}
+        mock-post2 (fn [_url _api-token _request_body]
+                     (res/success "some dodgy response"))]
+    (with-redefs [http/post2 mock-post2]
+      (let [result (fm/fetch-identity-info mock-session)]
+        (t/is (res/failure? result))
+        (t/is (= error-message (:error result)))))))
+
+(t/deftest fetch-identity-info-success-test
+  (let [mock-session {:apiUrl "url" :apiToken "token"}
+        mock-id 123
+        mock-response-body {:methodResponses [["Identity/get" {:list [{:id mock-id}]}]]}
+        mock-post2 (fn [_url _api-token _request_body]
+                     (res/success mock-response-body))]
+    (with-redefs [http/post2 mock-post2]
+      (let [result (fm/fetch-identity-info mock-session)]
+        (t/is (res/success? result))
+        (t/is (= mock-id (:value result)))))))
+
 
 
 
