@@ -24,7 +24,7 @@
       (let [session (:value get-result)]
         (if (map? session)
           (log-and-success "fetch-session succeeded" (assoc session :apiToken (:email-api-token config)))
-          (log-and-failure "Invalid session format")))
+          (log-and-failure "fetch-session failed" "Invalid session format")))
       get-result)))
 
 (defn get-account-id [session]
@@ -57,17 +57,17 @@
           error-response
           (let [{:keys [arguments type]} (second error-response)
                 error-msg (str "API error: " type ", arguments: " arguments)]
-            (log-and-failure error-msg))
+            (log-and-failure "fetch-identity-info failed" error-msg))
 
           identity-get-response
           (let [identity-info (get-in identity-get-response [1 :list])]
             (if (sequential? identity-info)
               (log-and-success "fetch-identity-info succeeded" (get-identity-id identity-info))
-              (log-and-failure "Identity/get response malformed")))
+              (log-and-failure "fetch-identity-info failed" "Identity/get response malformed")))
 
           :else
           (log-and-failure "Neither Identity/get nor error response found")))
-      (log-and-failure (:error post-result)))))
+      (log-and-failure "fetch-identity-info failed" (:error post-result)))))
 
 (defn fetch-mailbox-info
   [session]
@@ -91,15 +91,15 @@
           error-response
           (let [{:keys [arguments type]} (second error-response)
                 error-msg (str "API error: " type ", arguments: " arguments)]
-            (log-and-failure error-msg))
+            (log-and-failure "fetch-mailbox-info failed" error-msg))
 
           mailbox-get-response
           (let [result (:list (second mailbox-get-response))]
             (log-and-success "fetch-mailbox-info succeeded" result))
 
           :else
-          (log-and-failure "Neither Mailbox/get nor error response found")))
-      (log-and-failure (:error post-result)))))
+          (log-and-failure "fetch-mailbox-info failed" "Neither Mailbox/get nor error response found")))
+      (log-and-failure "fetch-mailbox-info failed" (:error post-result)))))
 
 (defn get-mailbox-id-by-name
   [mailbox-info mailbox-name]
@@ -135,57 +135,47 @@
           error-response
           (let [{:keys [arguments type]} (second error-response)
                 error-msg (str "API error: " type ", arguments: " arguments)]
-            (log-and-failure error-msg))
+            (log-and-failure "fetch-email-ids failed" error-msg))
 
           email-query-response
           (log-and-success "fetch-email-ids succeeded" (:ids (second email-query-response)))
 
           :else
-          (log-and-failure "Neither Email/query nor error response found")))
-      (log-and-failure (:error post-result)))))
+          (log-and-failure "fetch-email-ids failed" "Neither Email/query nor error response found")))
+      (log-and-failure "fetch-email-ids failed" (:error post-result)))))
 
 (defn fetch-email
   [session email-id]
-    (let [url (:apiUrl session)
-          api-token (:apiToken session)
-          request-body {:using ["urn:ietf:params:jmap:core" "urn:ietf:params:jmap:mail"]
-                        :methodCalls
-                        [["Email/get"
-                          {:accountId (get-account-id session)
-                           :ids       [email-id]}
-                          "a"]]}
-          post-result (http2/post2 url api-token request-body)]
-      (if (success? post-result)
-        (let [body (:value post-result)
-              method-responses (:methodResponses body)
-              error-response (first (filter #(= "error" (first %)) method-responses))
-              email-get-response (first (filter #(= "Email/query" (first %)) method-responses))]
-        (log-and-failure (:error post-result)))
-          response (http/post (:apiUrl session)
-                              {:headers headers
-                               :body    (json/encode query-body)
-                               :as      :auto})
-          body (:body response)
-          method-responses (:methodResponses body)
-          error-response (first (filter #(= "error" (first %)) method-responses))
-          email-get-response (first (filter #(= "Email/get" (first %)) method-responses))
-          (cond
-            error-response
-            (let [{:keys [arguments type]} (second error-response)
-              error-msg (str "API error: " type ", arguments: " arguments)]
-             (log-and-failure error-msg))
+  (let [url (:apiUrl session)
+        api-token (:apiToken session)
+        request-body {:using ["urn:ietf:params:jmap:core" "urn:ietf:params:jmap:mail"]
+                      :methodCalls
+                      [["Email/get"
+                        {:accountId (get-account-id session)
+                         :ids       [email-id]}
+                        "a"]]}
+        post-result (http2/post2 url api-token request-body)]
+    (if (success? post-result)
+      (let [body (:value post-result)
+            method-responses (:methodResponses body)
+            error-response (first (filter #(= "error" (first %)) method-responses))
+            email-get-response (first (filter #(= "Email/query" (first %)) method-responses))]
+        (cond
+          error-response
+          (let [{:keys [arguments type]} (second error-response)
+                error-msg (str "API error: " type ", arguments: " arguments)]
+            (log-and-failure "fetch-email failed" error-msg))
 
-        email-get-response
-        (let [emails (:list (second email-get-response))
-              email (first emails)]
-          (if email
-            (log-and-success "fetch-email succeeded" email)
-            (log-and-failure (str "Email with id " email-id " not found"))))
+          email-get-response
+          (let [emails (:list (second email-get-response))
+                email (first emails)]
+            (if email
+              (log-and-success "fetch-email succeeded" email)
+              (log-and-failure "fetch-email failed" (str "Email with id " email-id " not found"))))
 
-        :else
-        (log-and-failure "Neither Email/get nor error response found")))
-    (catch Exception e
-      (log-and-failure (str "Exception fetching email by id: " (.getMessage e))))))
+          :else
+          (log-and-failure "fetch-email failed" "Neither Email/get nor error response found")))
+      (log-and-failure "fetch-email failed" (:error post-result)))))
 
 
 (defn get-to-address [email]
@@ -230,16 +220,16 @@
         error-response
         (let [{:keys [arguments type]} (second error-response)
               error-msg (str "API error: " type ", arguments: " arguments)]
-          (log-and-failure error-msg))
+          (log-and-failure "move-email-to-mailbox failed" error-msg))
 
         (or (nil? email-set-response) (seq not-created))
-        (log-and-failure (str "Failed to move email " email-id " to mailbox " mailbox-id
-                              ". Details: " not-created))
+        (log-and-failure "move-email-to-mailbox failed" (str "Failed to move email " email-id " to mailbox " mailbox-id
+                                                             ". Details: " not-created))
 
         :else
         (log-and-success "move-email-to-mailbox succeeded")))
     (catch Exception e
-      (log-and-failure (str "Exception during move-email-to-mailbox: " (.getMessage e))))))
+      (log-and-failure "move-email-to-mailbox failed" (.getMessage e)))))
 
 (defn bytes->string
   [^bytes byte-array & {:keys [^String charset] :or {charset "UTF-8"}}]
@@ -282,7 +272,7 @@
       (tel/log! {:level :debug, :success true :blobId blob})
       (success decoded-content))
     (catch Exception e
-      (log-and-failure (str "Failed to download or decode blob: " (.getMessage e))))))
+      (log-and-failure "download-blob failed" (.getMessage e)))))
 
 
 (defn upload-blob
@@ -303,9 +293,9 @@
                  nil)]
       (if (and (= status 200) (contains? body :blobId))
         (log-and-success "upload-blob succeeded" (:blobId body))
-        (log-and-failure (str "Upload failed with status " status " and body: " body))))
+        (log-and-failure "upload-blob failed" (str "Upload failed with status " status " and body: " body))))
     (catch Exception e
-      (log-and-failure (str "Exception during upload: " (.getMessage e))))))
+      (log-and-failure "upload-blob failed" (.getMessage e)))))
 
 (defn get-blob-info
   [email]
@@ -386,16 +376,16 @@
         error-response
         (let [{:keys [arguments type]} (second error-response)
               error-msg (str "API error: " type ", arguments: " arguments)]
-          (log-and-failure error-msg))
+          (log-and-failure "create-draft-email failed" error-msg))
 
         real-email-id
         (log-and-success "create-draft-email succeeded" real-email-id)
 
         :else
-        (log-and-failure (get-in email-set-response [1 :notCreated (keyword draft-id) :description]
-                                 "Unknown error creating draft email"))))
+        (log-and-failure "create-draft-email failed" (get-in email-set-response [1 :notCreated (keyword draft-id) :description]
+                                                             "Unknown error creating draft email"))))
     (catch Exception e
-      (log-and-failure (str "Exception creating draft email: " (.getMessage e))))))
+      (log-and-failure "create-draft-email failed" (.getMessage e)))))
 
 
 
@@ -411,7 +401,7 @@
         (if (= (:role blob) :attachment)
           (let [upload-result (upload-blob session blob)]
             (if (:error upload-result)
-              (log-and-failure (:error-message upload-result))
+              (log-and-failure "upload-attachments failed" (:error-message upload-result))
               (recur (rest remaining)
                      (conj results {:role   (:role blob)
                                     :blobId {:old (:blobId blob)
@@ -447,7 +437,7 @@
           error-response
           (let [{:keys [arguments type]} (second error-response)
                 error-msg (str "API error: " type ", arguments: " arguments)]
-            (log-and-failure error-msg))
+            (log-and-failure "submit-email failed" error-msg))
 
           (and (>= status 200) (< status 300))
           (do
@@ -455,9 +445,9 @@
             (success email-id))
 
           :else
-          (log-and-failure (str "Failed to submit email, status: " status))))
+          (log-and-failure "submit-email failed" (str "status: " status))))
       (catch Exception e
-        (log-and-failure (str "Error submitting email: " (.getMessage e)))))))
+        (log-and-failure "submit-email failed" (.getMessage e))))))
 
 
 
@@ -478,7 +468,7 @@
             filename (str (name (:role blob)))              ;; Use role name as filename base
             download-result (download-blob session blob filename)]
         (if (:error download-result)
-          (log-and-failure (:error-message download-result))
+          (log-and-failure "download-blobs failed" (:error-message download-result))
           (recur (rest remaining)
                  (conj results download-result)))))))
 
