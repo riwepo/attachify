@@ -89,14 +89,14 @@
 
 (t/deftest fetch-mailbox-info-success-test
   (let [mock-session {:apiUrl "url" :apiToken "token"}
-        mock-id 123
-        mock-response-body {:methodResponses [["Mailbox/get" {:list [{:id mock-id}]}]]}
+        mock-mailbox-info [{:role "inbox" :name "Inbox" :id "P-Y"}]
+        mock-response-body {:methodResponses [["Mailbox/get" {:list mock-mailbox-info}]]}
         mock-post2 (fn [_url _api-token _request_body]
                      (res/success mock-response-body))]
     (with-redefs [http/post2 mock-post2]
       (let [result (fm/fetch-mailbox-info mock-session)]
         (t/is (res/success? result))
-        (t/is (= mock-id (:value result)))))))
+        (t/is (= mock-mailbox-info (:value result)))))))
 
 
 

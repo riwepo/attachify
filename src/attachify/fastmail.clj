@@ -528,5 +528,6 @@
   (def fetch-session-result (fetch-session config))
   (def session (:value fetch-session-result))
   (fetch-identity-info session)
+  (fetch-mailbox-info session)
   nil)
 
