@@ -146,15 +146,21 @@
 
 (defn fetch-email
   [session email-id]
-  (try
-    (let [headers {"Authorization" (str "Bearer " (:api-token session))
-                   "Content-Type"  "application/json; charset=utf-8"}
-          query-body {:using ["urn:ietf:params:jmap:core" "urn:ietf:params:jmap:mail"]
-                      :methodCalls
-                      [["Email/get"
-                        {:accountId (get-account-id session)
-                         :ids       [email-id]}
-                        "a"]]}
+    (let [url (:apiUrl session)
+          api-token (:apiToken session)
+          request-body {:using ["urn:ietf:params:jmap:core" "urn:ietf:params:jmap:mail"]
+                        :methodCalls
+                        [["Email/get"
+                          {:accountId (get-account-id session)
+                           :ids       [email-id]}
+                          "a"]]}
+          post-result (http2/post2 url api-token request-body)]
+      (if (success? post-result)
+        (let [body (:value post-result)
+              method-responses (:methodResponses body)
+              error-response (first (filter #(= "error" (first %)) method-responses))
+              email-get-response (first (filter #(= "Email/query" (first %)) method-responses))]
+        (log-and-failure (:error post-result)))
           response (http/post (:apiUrl session)
                               {:headers headers
                                :body    (json/encode query-body)
@@ -162,12 +168,12 @@
           body (:body response)
           method-responses (:methodResponses body)
           error-response (first (filter #(= "error" (first %)) method-responses))
-          email-get-response (first (filter #(= "Email/get" (first %)) method-responses))]
-      (cond
-        error-response
-        (let [{:keys [arguments type]} (second error-response)
+          email-get-response (first (filter #(= "Email/get" (first %)) method-responses))
+          (cond
+            error-response
+            (let [{:keys [arguments type]} (second error-response)
               error-msg (str "API error: " type ", arguments: " arguments)]
-          (log-and-failure error-msg))
+             (log-and-failure error-msg))
 
         email-get-response
         (let [emails (:list (second email-get-response))
