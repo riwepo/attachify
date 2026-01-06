@@ -132,6 +132,17 @@
         (t/is (res/success? result))
         (t/is (= mock-email-ids (:value result)))))))
 
+(t/deftest fetch-email-post2-fail-test
+  (let [error-message "post2 fail"
+        mock-email-id "email-id"
+        mock-session {:apiUrl "url" :apiToken "token"}
+        mock-post2 (fn [_url _api-token _request_body]
+                     (res/failure error-message))]
+    (with-redefs [http/post2 mock-post2]
+      (let [result (fm/fetch-email mock-session mock-email-id)]
+        (t/is (res/failure? result))
+        (t/is (= error-message (:error result)))))))
+
 
 
 
