@@ -11,13 +11,13 @@
     result))
 
 (defn log-and-success
-  ([]
+  ([message]
    (let [result (success)]
-     (tel/log! {:level :debug, :data result})
+     (tel/log! {:level :debug, :data result} message)
      result))
-  ([object]
+  ([message object]
    (let [result (success object)]
-     (tel/log! {:level :debug, :data result})
+     (tel/log! {:level :debug, :data result} message)
      result)))
 
 (comment
