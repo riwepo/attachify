@@ -166,6 +166,55 @@
         (t/is (res/success? result))
         (t/is (= mock-email (:value result)))))))
 
+(t/deftest move-email-to-mailbox-post2-fail-test
+  (let [error-message "post2 fail"
+        mock-email-id "email-id"
+        mock-mailbox-id "mailbox-id"
+        mock-session {:apiUrl "url" :apiToken "token"}
+        mock-post2 (fn [_url _api-token _request_body]
+                     (res/failure error-message))]
+    (with-redefs [http/post2 mock-post2]
+      (let [result (fm/move-email-to-mailbox mock-session mock-email-id mock-mailbox-id)]
+        (t/is (res/failure? result))
+        (t/is (= (str "move-email-to-mailbox failed " error-message) (:error result)))))))
+
+(t/deftest move-email-to-mailbox-format-fail-test
+  (let [error-message "No Email/set response found"
+        mock-email-id "email-id"
+        mock-mailbox-id "mailbox-id"
+        mock-session {:apiUrl "url" :apiToken "token"}
+        mock-post2 (fn [_url _api-token _request_body]
+                     (res/success "some dodgy response"))]
+    (with-redefs [http/post2 mock-post2]
+      (let [result (fm/move-email-to-mailbox mock-session mock-email-id mock-mailbox-id)]
+        (t/is (res/failure? result))
+        (t/is (= (str "move-email-to-mailbox failed " error-message) (:error result)))))))
+
+(t/deftest move-email-to-mailbox-not-created-fail-test
+  (let [error-message "not created response received"
+        mock-email-id "email-id"
+        mock-mailbox-id "mailbox-id"
+        mock-session {:apiUrl "url" :apiToken "token"}
+        mock-response-body {:methodResponses [["Email/set" {:notCreated ["email-id"]}]]}
+        mock-post2 (fn [_url _api-token _request_body]
+                     (res/success mock-response-body))]
+    (with-redefs [http/post2 mock-post2]
+      (let [result (fm/move-email-to-mailbox mock-session mock-email-id mock-mailbox-id)]
+        (t/is (res/failure? result))
+        (t/is (= (str "move-email-to-mailbox failed " error-message) (:error result)))))))
+
+(t/deftest move-email-to-mailbox-success-test
+  (let [mock-email-id "email-id"
+        mock-mailbox-id "mailbox-id"
+        mock-session {:apiUrl "url" :apiToken "token"}
+        mock-response-body {:methodResponses [["Email/set"]]}
+        mock-post2 (fn [_url _api-token _request_body]
+                     (res/success mock-response-body))]
+    (with-redefs [http/post2 mock-post2]
+      (let [result (fm/move-email-to-mailbox mock-session mock-email-id mock-mailbox-id)]
+        (t/is (res/success? result))))))
+
+
 
 
 

@@ -197,38 +197,36 @@
 
 (defn move-email-to-mailbox
   [session email-id mailbox-id]
-  (try
-    (let [headers {"Authorization" (str "Bearer " (:api-token session))
-                   "Content-Type"  "application/json; charset=utf-8"}
-          set-msg-payload {:using ["urn:ietf:params:jmap:core" "urn:ietf:params:jmap:mail"]
-                           :methodCalls
-                           [["Email/set"
-                             {:accountId (get-account-id session)
-                              :update    {email-id {:mailboxIds {mailbox-id true}}}}
-                             "a"]]}
-          response (http/post (:apiUrl session)
-                              {:headers headers
-                               :body    (json/encode set-msg-payload)
-                               :as      :auto})
-          body (:body response)
-          method-responses (:methodResponses body)
-          error-response (first (filter #(= "error" (first %)) method-responses))
-          email-set-response (first (filter #(= "Email/set" (first %)) method-responses))
-          not-created (get-in email-set-response [1 :notCreated])]
-      (cond
-        error-response
-        (let [{:keys [arguments type]} (second error-response)
-              error-msg (str "API error: " type ", arguments: " arguments)]
-          (log-and-failure "move-email-to-mailbox failed" error-msg))
+  (let [url (:apiUrl session)
+        api-token (:apiToken session)
+        request-body {:using ["urn:ietf:params:jmap:core" "urn:ietf:params:jmap:mail"]
+                      :methodCalls
+                      [["Email/set"
+                        {:accountId (get-account-id session)
+                         :update    {email-id {:mailboxIds {mailbox-id true}}}}
+                        "a"]]}
+        post-result (http2/post2 url api-token request-body)]
+    (if (success? post-result)
+      (let [body (:value post-result)
+            method-responses (:methodResponses body)
+            error-response (first (filter #(= "error" (first %)) method-responses))
+            email-set-response (first (filter #(= "Email/set" (first %)) method-responses))
+            not-created (get-in email-set-response [1 :notCreated])]
+        (cond
+          error-response
+          (let [{:keys [arguments type]} (second error-response)
+                error-msg (str "API error: " type ", arguments: " arguments)]
+            (log-and-failure "move-email-to-mailbox failed" error-msg))
 
-        (or (nil? email-set-response) (seq not-created))
-        (log-and-failure "move-email-to-mailbox failed" (str "Failed to move email " email-id " to mailbox " mailbox-id
-                                                             ". Details: " not-created))
+          (nil? email-set-response)
+          (log-and-failure "move-email-to-mailbox failed No Email/set response found")
 
-        :else
-        (log-and-success "move-email-to-mailbox succeeded")))
-    (catch Exception e
-      (log-and-failure "move-email-to-mailbox failed" (.getMessage e)))))
+          (seq not-created)
+          (log-and-failure "move-email-to-mailbox failed" "not created response received")
+
+          :else
+          (log-and-success "move-email-to-mailbox succeeded")))
+      (log-and-failure "move-email-to-mailbox failed" (:error post-result)))))
 
 (defn bytes->string
   [^bytes byte-array & {:keys [^String charset] :or {charset "UTF-8"}}]
@@ -243,35 +241,35 @@
   [s]
   (str/replace s #"\u00A0" " "))
 
-(defn download-blob
-  [session blob filename]
-  (try
-    (let [filename (or filename "file")
-          ext (get mime->ext (:type blob))
-          filename-with-ext (add-extension-if-missing filename ext)
-          encoded-filename (url-encode filename-with-ext)
-          encoded-type (url-encode (:type blob))
-          download-url (-> (:downloadUrl session)
-                           (str/replace "{accountId}" (get-account-id session))
-                           (str/replace "{blobId}" (:blobId blob))
-                           (str/replace "{name}" encoded-filename)
-                           (str/replace "{type}" encoded-type))
-          headers {"Authorization" (str "Bearer " (:api-token session))}
-          response (http/get download-url {:headers headers :as :byte-array})
-          bytes (:body response)
-          decoded-content (if (and (:type blob)
-                                   (or (str/starts-with? (:type blob) "text/")
-                                       (= (:type blob) "application/json")
-                                       (= (:type blob) "application/xml")))
-                            ;; decode text-like content as string
-                            (-> (bytes->string bytes :charset "UTF-8")
-                                replace-nbsp)
-                            ;; else keep raw bytes (e.g. images, pdfs)
-                            bytes)]
-      (tel/log! {:level :debug, :success true :blobId blob})
-      (success decoded-content))
-    (catch Exception e
-      (log-and-failure "download-blob failed" (.getMessage e)))))
+;(defn download-blob
+;  [session blob filename]
+;  (try
+;    (let [filename (or filename "file")
+;          ext (get mime->ext (:type blob))
+;          filename-with-ext (add-extension-if-missing filename ext)
+;          encoded-filename (url-encode filename-with-ext)
+;          encoded-type (url-encode (:type blob)) 0
+;          download-url (-> (:downloadUrl session)
+;                           (str/replace "{accountId}" (get-account-id session))
+;                           (str/replace "{blobId}" (:blobId blob))
+;                           (str/replace "{name}" encoded-filename)
+;                           (str/replace "{type}" encoded-type))
+;          headers {"Authorization" (str "Bearer " (:api-token session))}
+;          response (http/get download-url {:headers headers :as :byte-array})
+;          bytes (:body response)
+;          decoded-content (if (and (:type blob)
+;                                   (or (str/starts-with? (:type blob) "text/")
+;                                       (= (:type blob) "application/json")
+;                                       (= (:type blob) "application/xml")))
+;                            ;; decode text-like content as string
+;                            (-> (bytes->string bytes :charset "UTF-8")
+;                                replace-nbsp)
+;                            ;; else keep raw bytes (e.g. images, pdfs)
+;                            bytes)]
+;      (tel/log! {:level :debug, :success true :blobId blob})
+;      (success decoded-content))
+;    (catch Exception e
+;      (log-and-failure "download-blob failed" (.getMessage e)))))
 
 
 (defn upload-blob
@@ -450,26 +448,26 @@
 
 
 
-(defn download-blobs
-  [session blob-info]
-  (loop [remaining blob-info
-         results []]
-    (if (empty? remaining)
-      (do
-        (tel/log! {:level :debug, :success true})
-        (success
-          (mapv
-            (fn [blob download]
-              (assoc blob :value (:value download)))
-            blob-info
-            results)))
-      (let [blob (first remaining)
-            filename (str (name (:role blob)))              ;; Use role name as filename base
-            download-result (download-blob session blob filename)]
-        (if (:error download-result)
-          (log-and-failure "download-blobs failed" (:error-message download-result))
-          (recur (rest remaining)
-                 (conj results download-result)))))))
+;(defn download-blobs
+;  [session blob-info]
+;  (loop [remaining blob-info
+;         results []]
+;    (if (empty? remaining)
+;      (do
+;        (tel/log! {:level :debug, :success true})
+;        (success
+;          (mapv
+;            (fn [blob download]
+;              (assoc blob :value (:value download)))
+;            blob-info
+;            results)))
+;      (let [blob (first remaining)
+;            filename (str (name (:role blob)))              ;; Use role name as filename base
+;            download-result (download-blob session blob filename)]
+;        (if (:error download-result)
+;          (log-and-failure "download-blobs failed" (:error-message download-result))
+;          (recur (rest remaining)
+;                 (conj results download-result)))))))
 
 
 (comment
