@@ -4,16 +4,12 @@
 
 (defn failure [& msgs]
   (let [combined-message (str/join " " msgs)]
-    (println combined-message)
     {:status :error
      :error  combined-message}))
 
 (defn success
-  ([]
-   {:status :ok})
-  ([value]
-   {:status :ok
-    :value  value}))
+  [value]
+  {:status :ok :value value})
 
 (defn success?
   [result]

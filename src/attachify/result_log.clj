@@ -12,22 +12,13 @@
     result))
 
 (defn log-and-success
-  [& args]
-  (println args)
-  (let [[object msgs] (if (and (seq args) (not (string? (first args))))
-                        ;; first arg is object, rest are messages
-                        [(first args) (rest args)]
-                        ;; no object, all args are messages
-                        [nil args])
-        combined-message (str/join " " msgs)
-        result (if object
-                 (success object)
-                 (success))]
+  [value & msgs]
+  (let [combined-message (str/join " " msgs)
+        result (success value)]
     (tel/log! {:level :debug, :data result} combined-message)
     result))
 
 (comment
-
   nil)
 
 

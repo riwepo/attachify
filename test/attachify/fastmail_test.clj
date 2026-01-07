@@ -212,7 +212,32 @@
                      (res/success mock-response-body))]
     (with-redefs [http/post2 mock-post2]
       (let [result (fm/move-email-to-mailbox mock-session mock-email-id mock-mailbox-id)]
-        (t/is (res/success? result))))))
+        (t/is (res/success? result))
+        (t/is (nil? (:value result)))))))
+
+(t/deftest get-file-extension-fail-test
+  (let [mock-mime-type "dodgy-mime-type"
+        result (fm/get-file-extension mock-mime-type)]
+    (t/is (res/failure? result))
+    (t/is (= "get-file-extension failed unexpected mime type dodgy-mime-type" (:error result)))))
+
+(t/deftest get-file-extension-success-test
+  (let [mock-mime-type "image/jpeg"
+        result (fm/get-file-extension mock-mime-type)]
+    (t/is (res/success? result))
+    (t/is (= ".jpg" (:value result)))))
+
+(t/deftest download-blob-get2-fail-test
+  (let [error-message "get2 failed"
+        mock-session {:apiUrl "url" :apiToken "token"}
+        mock-blob-info {:type "image/jpeg"}
+        mock-filename "filename"
+        mock-get2 (fn [_url _api-token]
+                    (res/failure error-message))]
+    (with-redefs [http/get2 mock-get2]
+      (let [result (fm/download-blob mock-session mock-blob-info mock-filename)]
+        (t/is (res/failure? result))
+        (t/is (= (str "fetch-session failed " error-message) (:error result)))))))
 
 
 
