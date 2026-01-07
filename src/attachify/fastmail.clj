@@ -19,13 +19,12 @@
   (let [auth-url (get-email-auth-url config)
         api-token (:email-api-token config)
         get-result (http2/get2 auth-url api-token)]
-    (println get-result)
     (if (success? get-result)
       (let [session (:value get-result)]
         (if (map? session)
           (log-and-success "fetch-session succeeded" (assoc session :apiToken (:email-api-token config)))
           (log-and-failure "fetch-session failed" "Invalid session format")))
-      get-result)))
+      (log-and-failure "fetch-session failed" (:error get-result)))))
 
 (defn get-account-id [session]
   (get-in session [:primaryAccounts :urn:ietf:params:jmap:mail]))
@@ -479,5 +478,6 @@
   (def session (:value fetch-session-result))
   (fetch-mailbox-info session)
   (fetch-email-ids session "P-F")
+  (str/join " " ["one" "two"])
   nil)
 

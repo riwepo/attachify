@@ -6,14 +6,14 @@
             [attachify.fastmail :as fm]))
 
 (t/deftest fetch-session-get2-fail-test
-  (let [error-message "get2 fail"
+  (let [error-message "get2 failed"
         config (cfg/load-config)
         mock-get2 (fn [_url _api-token]
                     (res/failure error-message))]
     (with-redefs [http/get2 mock-get2]
       (let [result (fm/fetch-session config)]
         (t/is (res/failure? result))
-        (t/is (= error-message (:error result)))))))
+        (t/is (= (str "fetch-session failed " error-message) (:error result)))))))
 
 (t/deftest fetch-session-format-fail-test
   (let [error-message "Invalid session format"
@@ -23,12 +23,12 @@
     (with-redefs [http/get2 mock-get2]
       (let [result (fm/fetch-session config)]
         (t/is (res/failure? result))
-        (t/is (= error-message (:error result)))))))
+        (t/is (= (str "fetch-session failed " error-message) (:error result)))))))
 
 (t/deftest fetch-session-success-test
   (let [
         config (cfg/load-config)
-        mock-session {:api-token (:email-api-token config)}
+        mock-session {:apiToken (:email-api-token config)}
         mock-get2 (fn [_url _api-token]
                     (res/success mock-session))]
     (with-redefs [http/get2 mock-get2]

@@ -12,11 +12,11 @@
             status (:status response)]
         (if (= status 200)
           (do
-            (log-and-success)
+            (log-and-success "get2 succeeded")
             (success (:body response)))
-          (log-and-failure (str "Error " status " http/get URL " url))))
+          (log-and-failure "get2 failed" url status)))
       (catch Exception e
-        (log-and-failure (str "Error http/get URL " url " " (.getMessage e)))))))
+        (log-and-failure "get2 failed" url (.getMessage e))))))
 
 (defn post2 [url api-token body]
   (let [headers {"Authorization" (str "Bearer " api-token)
@@ -28,8 +28,8 @@
             status (:status response)]
         (if (= status 200)
           (do
-            (log-and-success)
+            (log-and-success "get2 succeeded")
             (success (:body response)))
-          (log-and-failure (str "Error " status " http/post URL " url))))
+          (log-and-failure "get2 failed" status url)))
       (catch Exception e
-        (log-and-failure (str "Error http/post URL " url " " (.getMessage e)))))))
+        (log-and-failure "get2 failed" url (.getMessage e))))))

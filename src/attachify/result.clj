@@ -1,8 +1,12 @@
-(ns attachify.result)
+(ns attachify.result
+  (:require
+    [clojure.string :as str]))
 
-(defn failure [msg]
-  {:status :error
-   :error  msg})
+(defn failure [& msgs]
+  (let [combined-message (str/join " " msgs)]
+    (println combined-message)
+    {:status :error
+     :error  combined-message}))
 
 (defn success
   ([]
@@ -18,4 +22,9 @@
 (defn failure?
   [result]
   (not= :ok (:status result)))
+
+(comment
+  (failure "1" "2")
+
+  nil)
 
