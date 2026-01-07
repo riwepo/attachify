@@ -278,6 +278,7 @@
 
 (defn create-download-url [session blob-info filename]
   (let [get-file-extension-result (get-file-extension (:type blob-info))]
+    (println get-file-extension-result)
     (if (success? get-file-extension-result)
       (let [ext (:value get-file-extension-result)
             filename-with-ext (add-extension-if-missing filename ext)
@@ -288,8 +289,9 @@
                              (str/replace "{blobId}" (:blobId blob-info))
                              (str/replace "{name}" encoded-filename)
                              (str/replace "{type}" encoded-type))]
+        (println download-url)
         (log-and-success download-url "create-download-url succeeded"))
-      (log-and-failure "create-download-url failed"))))
+      (log-and-failure "create-download-url failed" (:error get-file-extension-result)))))
 
 (defn decode-blob-content [blob-info bytes]
   (let [decoded-content (if (and (:type blob-info)
@@ -305,15 +307,17 @@
 
 (defn download-blob
   [session blob-info filename]
-  (let [api-token (:apiToken session)
-        download-url (create-download-url session blob-info filename)
-        get-result (http2/get2 download-url api-token)]
-    (println download-url)
-    (if (success? get-result)
-      (let [bytes (:value get-result)
-            decoded-content (decode-blob-content blob-info bytes)]
-        (log-and-success decoded-content "download-blob succeeded"))
-      (log-and-failure "download-blob failed" (:error get-result)))))
+  (let [create-download-url-result (create-download-url session blob-info filename)]
+    (if (success? create-download-url-result)
+      (let [api-token (:apiToken session)
+            download-url (:value create-download-url-result)
+            get-result (http2/get2 download-url api-token)]
+        (if (success? get-result)
+          (let [bytes (:value get-result)
+                decoded-content (decode-blob-content blob-info bytes)]
+            (log-and-success decoded-content "download-blob succeeded"))
+          (log-and-failure "download-blob failed" (:error get-result))))
+      (log-and-failure "download-blob failed" (:error create-download-url-result)))))
 
 (defn download-blobs
   [session blob-info]

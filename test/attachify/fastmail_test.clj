@@ -227,6 +227,25 @@
     (t/is (res/success? result))
     (t/is (= ".jpg" (:value result)))))
 
+(t/deftest create-download-url-fail-test
+  (let [mock-session {:apiUrl "url" :apiToken "token"}
+        mock-blob-info {:type "dodgy-mime-type"}
+        mock-filename "filename"
+        result (fm/create-download-url mock-session mock-blob-info mock-filename)]
+    (t/is (res/failure? result))
+    (t/is (= "create-download-url failed get-file-extension failed unexpected mime type dodgy-mime-type" (:error result)))))
+
+(t/deftest create-download-url-success-test
+  (let [mock-session {:apiUrl          "url"
+                      :apiToken        "token"
+                      :primaryAccounts {:urn:ietf:params:jmap:mail "account-name"}
+                      :downloadUrl     "{accountId}/{blobId}/{name}/{type}"}
+        mock-blob-info {:blobId "blobId" :type "image/jpeg"}
+        mock-filename "filename"
+        result (fm/create-download-url mock-session mock-blob-info mock-filename)]
+    (t/is (res/success? result))
+    (t/is (= "account-name/blobId/filename.jpg/image%2Fjpeg" (:value result)))))
+
 (t/deftest download-blob-get2-fail-test
   (let [error-message "get2 failed"
         mock-session {:apiUrl "url" :apiToken "token"}
