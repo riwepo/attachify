@@ -44,7 +44,7 @@
     (with-redefs [http/post2 mock-post2]
       (let [result (fm/fetch-identity-info mock-session)]
         (t/is (res/failure? result))
-        (t/is (= error-message (:error result)))))))
+        (t/is (= (str "fetch-identity-info failed " error-message) (:error result)))))))
 
 (t/deftest fetch-identity-info-format-fail-test
   (let [error-message "Neither Identity/get nor error response found"
@@ -54,7 +54,7 @@
     (with-redefs [http/post2 mock-post2]
       (let [result (fm/fetch-identity-info mock-session)]
         (t/is (res/failure? result))
-        (t/is (= error-message (:error result)))))))
+        (t/is (= (str "fetch-identity-info failed " error-message) (:error result)))))))
 
 (t/deftest fetch-identity-info-success-test
   (let [mock-session {:apiUrl "url" :apiToken "token"}
@@ -75,7 +75,7 @@
     (with-redefs [http/post2 mock-post2]
       (let [result (fm/fetch-mailbox-info mock-session)]
         (t/is (res/failure? result))
-        (t/is (= error-message (:error result)))))))
+        (t/is (= (str "fetch-mailbox-info failed " error-message) (:error result)))))))
 
 (t/deftest fetch-mailbox-info-format-fail-test
   (let [error-message "Neither Mailbox/get nor error response found"
@@ -85,7 +85,7 @@
     (with-redefs [http/post2 mock-post2]
       (let [result (fm/fetch-mailbox-info mock-session)]
         (t/is (res/failure? result))
-        (t/is (= error-message (:error result)))))))
+        (t/is (= (str "fetch-mailbox-info failed " error-message) (:error result)))))))
 
 (t/deftest fetch-mailbox-info-success-test
   (let [mock-session {:apiUrl "url" :apiToken "token"}
@@ -107,7 +107,7 @@
     (with-redefs [http/post2 mock-post2]
       (let [result (fm/fetch-email-ids mock-session mock-mailbox-id)]
         (t/is (res/failure? result))
-        (t/is (= error-message (:error result)))))))
+        (t/is (= (str "fetch-email-ids failed " error-message) (:error result)))))))
 
 (t/deftest fetch-email-ids-format-fail-test
   (let [error-message "Neither Email/query nor error response found"
@@ -118,7 +118,7 @@
     (with-redefs [http/post2 mock-post2]
       (let [result (fm/fetch-email-ids mock-session mock-mailbox-id)]
         (t/is (res/failure? result))
-        (t/is (= error-message (:error result)))))))
+        (t/is (= (str "fetch-email-ids failed " error-message) (:error result)))))))
 
 (t/deftest fetch-email-ids-success-test
   (let [mock-session {:apiUrl "url" :apiToken "token"}
@@ -141,7 +141,30 @@
     (with-redefs [http/post2 mock-post2]
       (let [result (fm/fetch-email mock-session mock-email-id)]
         (t/is (res/failure? result))
-        (t/is (= error-message (:error result)))))))
+        (t/is (= (str "fetch-email failed " error-message) (:error result)))))))
+
+(t/deftest fetch-email-format-fail-test
+  (let [error-message "Neither Email/get nor error response found"
+        mock-email-id "email-id"
+        mock-session {:apiUrl "url" :apiToken "token"}
+        mock-post2 (fn [_url _api-token _request_body]
+                     (res/success "some dodgy response"))]
+    (with-redefs [http/post2 mock-post2]
+      (let [result (fm/fetch-email mock-session mock-email-id)]
+        (t/is (res/failure? result))
+        (t/is (= (str "fetch-email failed " error-message) (:error result)))))))
+
+(t/deftest fetch-email-success-test
+  (let [mock-session {:apiUrl "url" :apiToken "token"}
+        mock-email-id "email-id"
+        mock-email {:to "fred" :from "nerk"}
+        mock-response-body {:methodResponses [["Email/query" {:list [mock-email]}]]}
+        mock-post2 (fn [_url _api-token _request_body]
+                     (res/success mock-response-body))]
+    (with-redefs [http/post2 mock-post2]
+      (let [result (fm/fetch-email mock-session mock-email-id)]
+        (t/is (res/success? result))
+        (t/is (= mock-email (:value result)))))))
 
 
 

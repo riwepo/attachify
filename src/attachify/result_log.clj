@@ -13,6 +13,7 @@
 
 (defn log-and-success
   [& args]
+  (println args)
   (let [[object msgs] (if (and (seq args) (not (string? (first args))))
                         ;; first arg is object, rest are messages
                         [(first args) (rest args)]

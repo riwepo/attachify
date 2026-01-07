@@ -22,7 +22,7 @@
     (if (success? get-result)
       (let [session (:value get-result)]
         (if (map? session)
-          (log-and-success "fetch-session succeeded" (assoc session :apiToken (:email-api-token config)))
+          (log-and-success (assoc session :apiToken (:email-api-token config)) "fetch-session succeeded")
           (log-and-failure "fetch-session failed" "Invalid session format")))
       (log-and-failure "fetch-session failed" (:error get-result)))))
 
@@ -61,11 +61,11 @@
           identity-get-response
           (let [identity-info (get-in identity-get-response [1 :list])]
             (if (sequential? identity-info)
-              (log-and-success "fetch-identity-info succeeded" (get-identity-id identity-info))
+              (log-and-success (get-identity-id identity-info) "fetch-identity-info succeeded")
               (log-and-failure "fetch-identity-info failed" "Identity/get response malformed")))
 
           :else
-          (log-and-failure "Neither Identity/get nor error response found")))
+          (log-and-failure "fetch-identity-info failed" "Neither Identity/get nor error response found")))
       (log-and-failure "fetch-identity-info failed" (:error post-result)))))
 
 (defn fetch-mailbox-info
@@ -94,7 +94,7 @@
 
           mailbox-get-response
           (let [result (:list (second mailbox-get-response))]
-            (log-and-success "fetch-mailbox-info succeeded" result))
+            (log-and-success result "fetch-mailbox-info succeeded"))
 
           :else
           (log-and-failure "fetch-mailbox-info failed" "Neither Mailbox/get nor error response found")))
@@ -137,7 +137,7 @@
             (log-and-failure "fetch-email-ids failed" error-msg))
 
           email-query-response
-          (log-and-success "fetch-email-ids succeeded" (:ids (second email-query-response)))
+          (log-and-success (:ids (second email-query-response)) "fetch-email-ids succeeded")
 
           :else
           (log-and-failure "fetch-email-ids failed" "Neither Email/query nor error response found")))
@@ -169,7 +169,7 @@
           (let [emails (:list (second email-get-response))
                 email (first emails)]
             (if email
-              (log-and-success "fetch-email succeeded" email)
+              (log-and-success email "fetch-email succeeded")
               (log-and-failure "fetch-email failed" (str "Email with id " email-id " not found"))))
 
           :else
@@ -291,7 +291,7 @@
                  (json/parse-string (:body response) true)
                  nil)]
       (if (and (= status 200) (contains? body :blobId))
-        (log-and-success "upload-blob succeeded" (:blobId body))
+        (log-and-success (:blobId body) "upload-blob succeeded")
         (log-and-failure "upload-blob failed" (str "Upload failed with status " status " and body: " body))))
     (catch Exception e
       (log-and-failure "upload-blob failed" (.getMessage e)))))
@@ -378,7 +378,7 @@
           (log-and-failure "create-draft-email failed" error-msg))
 
         real-email-id
-        (log-and-success "create-draft-email succeeded" real-email-id)
+        (log-and-success real-email-id "create-draft-email succeeded")
 
         :else
         (log-and-failure "create-draft-email failed" (get-in email-set-response [1 :notCreated (keyword draft-id) :description]
