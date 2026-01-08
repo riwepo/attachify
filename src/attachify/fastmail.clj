@@ -85,7 +85,6 @@
             method-responses (:methodResponses body)
             error-response (first (filter #(= "error" (first %)) method-responses))
             mailbox-get-response (first (filter #(= "Mailbox/get" (first %)) method-responses))]
-        (println mailbox-get-response)
         (cond
           error-response
           (let [{:keys [arguments type]} (second error-response)
@@ -278,7 +277,6 @@
 
 (defn create-download-url [session blob-info filename]
   (let [get-file-extension-result (get-file-extension (:type blob-info))]
-    (println get-file-extension-result)
     (if (success? get-file-extension-result)
       (let [ext (:value get-file-extension-result)
             filename-with-ext (add-extension-if-missing filename ext)
@@ -289,7 +287,6 @@
                              (str/replace "{blobId}" (:blobId blob-info))
                              (str/replace "{name}" encoded-filename)
                              (str/replace "{type}" encoded-type))]
-        (println download-url)
         (log-and-success download-url "create-download-url succeeded"))
       (log-and-failure "create-download-url failed" (:error get-file-extension-result)))))
 
