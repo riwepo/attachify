@@ -246,17 +246,46 @@
     (t/is (res/success? result))
     (t/is (= "account-name/blobId/filename.jpg/image%2Fjpeg" (:value result)))))
 
+(t/deftest download-blob-create-download-url-fail-test
+  (let [error-message "create-download-url failed"
+        mock-session {}
+        mock-blob-info {}
+        mock-filename "filename"
+        mock-create-download-url (fn [_session _blob-info _filename]
+                                   (res/failure error-message))]
+    (with-redefs [fm/create-download-url mock-create-download-url]
+      (let [result (fm/download-blob mock-session mock-blob-info mock-filename)]
+        (t/is (res/failure? result))
+        (t/is (= (str "download-blob failed " error-message) (:error result)))))))
+
 (t/deftest download-blob-get2-fail-test
   (let [error-message "get2 failed"
-        mock-session {:apiUrl "url" :apiToken "token"}
-        mock-blob-info {:type "image/jpeg"}
+        mock-session {:apiUrl          "url"
+                      :apiToken        "token"
+                      :primaryAccounts {:urn:ietf:params:jmap:mail "account-name"}
+                      :downloadUrl     "{accountId}/{blobId}/{name}/{type}"}
+        mock-blob-info {:blobId "blobId" :type "image/jpeg"}
         mock-filename "filename"
         mock-get2 (fn [_url _api-token]
                     (res/failure error-message))]
     (with-redefs [http/get2 mock-get2]
       (let [result (fm/download-blob mock-session mock-blob-info mock-filename)]
         (t/is (res/failure? result))
-        (t/is (= (str "fetch-session failed " error-message) (:error result)))))))
+        (t/is (= (str "download-blob failed " error-message) (:error result)))))))
+
+(t/deftest download-blob-success-test
+  (let [mock-session {}
+        mock-blob-info {}
+        mock-filename "filename"
+        mock-blob-content "mock blob content"
+        mock-create-download-url (fn [_session _blob-info _filename]
+                                   (res/success "download-url"))
+        mock-get2 (fn [_url _api-token]
+                    (res/success mock-blob-content))]
+    (with-redefs [fm/create-download-url mock-create-download-url  http/get2 mock-get2]
+      (let [result (fm/download-blob mock-session mock-blob-info mock-filename)]
+        (t/is (res/success? result))
+        (t/is (= mock-blob-content (:value result)))))))
 
 
 
