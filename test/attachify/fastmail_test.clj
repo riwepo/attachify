@@ -287,6 +287,28 @@
         (t/is (res/success? result))
         (t/is (= mock-blob-content (:value result)))))))
 
+(t/deftest download-blobs-download-blob-fail-test
+  (let [mock-error-message "download-blob failed"
+        mock-session {}
+        mock-blob-infos [{:role :mockRole}]
+        mock-download_blob (fn [_session _blob-info _filename]
+                             (res/failure mock-error-message))]
+    (with-redefs [fm/download-blob mock-download_blob]
+      (let [result (fm/download-blobs mock-session mock-blob-infos)]
+        (t/is (res/failure? result))
+        (t/is (= (str "download-blobs failed " mock-error-message) (:error result)))))))
+
+(t/deftest download-blobs-success-test
+  (let [mock-session {}
+        mock-blob-content "mock-blob-content"
+        mock-blob-infos [{:role :mockRole}]
+        mock-download_blob (fn [_session _blob-info _filename]
+                             (res/success mock-blob-content))]
+    (with-redefs [fm/download-blob mock-download_blob]
+      (let [result (fm/download-blobs mock-session mock-blob-infos)]
+        (t/is (res/success result))
+        (t/is (= [{:role :mockRole :value mock-blob-content}] (:value result)))))))
+
 
 
 
