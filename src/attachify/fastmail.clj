@@ -317,23 +317,23 @@
       (log-and-failure "download-blob failed" (:error create-download-url-result)))))
 
 (defn download-blobs
-  [session blob-info]
-  (loop [remaining blob-info
+  [session blob-infos]
+  (loop [remaining blob-infos
          results []]
     (if (empty? remaining)
       (do
-        (tel/log! {:level :debug, :success true})
+        (tel/log! {:level :debug, :data (success nil)} "download-blobs succeeded")
         (success
           (mapv
             (fn [blob download]
               (assoc blob :value (:value download)))
-            blob-info
+            blob-infos
             results)))
-      (let [blob (first remaining)
-            filename (str (name (:role blob)))              ;; Use role name as filename base
-            download-result (download-blob session blob filename)]
+      (let [blob-info (first remaining)
+            filename (str (name (:role blob-info)))              ;; Use role name as filename base
+            download-result (download-blob session blob-info filename)]
         (if (:error download-result)
-          (log-and-failure "download-blobs failed" (:error-message download-result))
+          (log-and-failure "download-blobs failed" (:error download-result))
           (recur (rest remaining)
                  (conj results download-result)))))))
 
@@ -359,7 +359,7 @@
     (catch Exception e
       (log-and-failure "upload-blob failed" (.getMessage e)))))
 
-(defn get-blob-info
+(defn get-blobs-info
   [email]
   (let [text-blobs (map (fn [part]
                           {:role   :textBody
