@@ -314,33 +314,10 @@
           (recur (rest remaining)
                  (conj results download-result)))))))
 
-(defn upload-blob-old
-  [session blob]
-  (try
-    (let [upload-url (-> (:uploadUrl session)
-                         (str/replace "{accountId}" (get-account-id session)))
-          headers {"Authorization" (str "Bearer " (:api-token session))
-                   "Content-Type"  (:type blob)}
-          response (http/post upload-url {:headers          headers
-                                          :body             (:value blob)
-                                          :throw-exceptions false})
-          status (:status response)
-          content-type (some-> (get-in response [:headers "Content-Type"])
-                               str/lower-case)
-          body (if (and content-type (str/includes? content-type "application/json"))
-                 (json/parse-string (:body response) true)
-                 nil)]
-      (if (and (= status 200) (contains? body :blobId))
-        (log-and-success (:blobId body) "upload-blob succeeded")
-        (log-and-failure "upload-blob failed" (str "Upload failed with status " status " and body: " body))))
-    (catch Exception e
-      (log-and-failure "upload-blob failed" (.getMessage e)))))
-
 (defn get-upload-url [session]
   (let [upload-url (-> (:uploadUrl session)
                        (str/replace "{accountId}" (get-account-id session)))]
     upload-url))
-
 
 (defn upload-blob
   [session blob]
@@ -357,8 +334,8 @@
                      nil)]
           (if (and (= status 200) (contains? body :blobId))
             (log-and-success (:blobId body) "upload-blob succeeded")
-            (log-and-failure "upload-blob-failed" status body)))
-        (log-and-failure "upload-blob-failed" (:error post-result)))))
+            (log-and-failure "upload-blob failed" status body)))
+        (log-and-failure "upload-blob failed" (:error post-result)))))
 
 (defn get-blobs-info
   [email]
