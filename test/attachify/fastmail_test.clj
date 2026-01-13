@@ -1,5 +1,6 @@
 (ns attachify.fastmail-test
   (:require [clojure.test :as t]
+            [cheshire.core :as json]
             [attachify.result :as res]
             [attachify.config :as cfg]
             [attachify.http :as http]
@@ -39,7 +40,7 @@
 (t/deftest fetch-identity-info-post2-fail-test
   (let [error-message "post2 fail"
         mock-session {:apiUrl "url" :apiToken "token"}
-        mock-post2 (fn [_url _api-token _request_body]
+        mock-post2 (fn [_url _api-token _request_body _content_type]
                      (res/failure error-message))]
     (with-redefs [http/post2 mock-post2]
       (let [result (fm/fetch-identity-info mock-session)]
@@ -49,7 +50,7 @@
 (t/deftest fetch-identity-info-format-fail-test
   (let [error-message "Neither Identity/get nor error response found"
         mock-session {:apiUrl "url" :apiToken "token"}
-        mock-post2 (fn [_url _api-token _request_body]
+        mock-post2 (fn [_url _api-token _request_body _content_type]
                      (res/success "some dodgy response"))]
     (with-redefs [http/post2 mock-post2]
       (let [result (fm/fetch-identity-info mock-session)]
@@ -60,7 +61,7 @@
   (let [mock-session {:apiUrl "url" :apiToken "token"}
         mock-id 123
         mock-response-body {:methodResponses [["Identity/get" {:list [{:id mock-id}]}]]}
-        mock-post2 (fn [_url _api-token _request_body]
+        mock-post2 (fn [_url _api-token _request_body _content_type]
                      (res/success mock-response-body))]
     (with-redefs [http/post2 mock-post2]
       (let [result (fm/fetch-identity-info mock-session)]
@@ -70,7 +71,7 @@
 (t/deftest fetch-mailbox-info-post2-fail-test
   (let [error-message "post2 fail"
         mock-session {:apiUrl "url" :apiToken "token"}
-        mock-post2 (fn [_url _api-token _request_body]
+        mock-post2 (fn [_url _api-token _request_body _content_type]
                      (res/failure error-message))]
     (with-redefs [http/post2 mock-post2]
       (let [result (fm/fetch-mailbox-info mock-session)]
@@ -80,7 +81,7 @@
 (t/deftest fetch-mailbox-info-format-fail-test
   (let [error-message "Neither Mailbox/get nor error response found"
         mock-session {:apiUrl "url" :apiToken "token"}
-        mock-post2 (fn [_url _api-token _request_body]
+        mock-post2 (fn [_url _api-token _request_body _content-type]
                      (res/success "some dodgy response"))]
     (with-redefs [http/post2 mock-post2]
       (let [result (fm/fetch-mailbox-info mock-session)]
@@ -91,7 +92,7 @@
   (let [mock-session {:apiUrl "url" :apiToken "token"}
         mock-mailbox-info [{:role "inbox" :name "Inbox" :id "P-Y"}]
         mock-response-body {:methodResponses [["Mailbox/get" {:list mock-mailbox-info}]]}
-        mock-post2 (fn [_url _api-token _request_body]
+        mock-post2 (fn [_url _api-token _request_body _content_type]
                      (res/success mock-response-body))]
     (with-redefs [http/post2 mock-post2]
       (let [result (fm/fetch-mailbox-info mock-session)]
@@ -102,7 +103,7 @@
   (let [error-message "post2 fail"
         mock-mailbox-id "P-Y"
         mock-session {:apiUrl "url" :apiToken "token"}
-        mock-post2 (fn [_url _api-token _request_body]
+        mock-post2 (fn [_url _api-token _request_body _content_type]
                      (res/failure error-message))]
     (with-redefs [http/post2 mock-post2]
       (let [result (fm/fetch-email-ids mock-session mock-mailbox-id)]
@@ -113,7 +114,7 @@
   (let [error-message "Neither Email/query nor error response found"
         mock-mailbox-id "P-Y"
         mock-session {:apiUrl "url" :apiToken "token"}
-        mock-post2 (fn [_url _api-token _request_body]
+        mock-post2 (fn [_url _api-token _request_body _content_type]
                      (res/success "some dodgy response"))]
     (with-redefs [http/post2 mock-post2]
       (let [result (fm/fetch-email-ids mock-session mock-mailbox-id)]
@@ -125,7 +126,7 @@
         mock-mailbox-id "P-F"
         mock-email-ids ["1" "2" "3"]
         mock-response-body {:methodResponses [["Email/query" {:ids mock-email-ids}]]}
-        mock-post2 (fn [_url _api-token _request_body]
+        mock-post2 (fn [_url _api-token _request_body _content_type]
                      (res/success mock-response-body))]
     (with-redefs [http/post2 mock-post2]
       (let [result (fm/fetch-email-ids mock-session mock-mailbox-id)]
@@ -136,7 +137,7 @@
   (let [error-message "post2 fail"
         mock-email-id "email-id"
         mock-session {:apiUrl "url" :apiToken "token"}
-        mock-post2 (fn [_url _api-token _request_body]
+        mock-post2 (fn [_url _api-token _request_body _content_type]
                      (res/failure error-message))]
     (with-redefs [http/post2 mock-post2]
       (let [result (fm/fetch-email mock-session mock-email-id)]
@@ -147,7 +148,7 @@
   (let [error-message "Neither Email/get nor error response found"
         mock-email-id "email-id"
         mock-session {:apiUrl "url" :apiToken "token"}
-        mock-post2 (fn [_url _api-token _request_body]
+        mock-post2 (fn [_url _api-token _request_body _content_type]
                      (res/success "some dodgy response"))]
     (with-redefs [http/post2 mock-post2]
       (let [result (fm/fetch-email mock-session mock-email-id)]
@@ -159,7 +160,7 @@
         mock-email-id "email-id"
         mock-email {:to "fred" :from "nerk"}
         mock-response-body {:methodResponses [["Email/query" {:list [mock-email]}]]}
-        mock-post2 (fn [_url _api-token _request_body]
+        mock-post2 (fn [_url _api-token _request_body _content_type]
                      (res/success mock-response-body))]
     (with-redefs [http/post2 mock-post2]
       (let [result (fm/fetch-email mock-session mock-email-id)]
@@ -171,7 +172,7 @@
         mock-email-id "email-id"
         mock-mailbox-id "mailbox-id"
         mock-session {:apiUrl "url" :apiToken "token"}
-        mock-post2 (fn [_url _api-token _request_body]
+        mock-post2 (fn [_url _api-token _request_body _content_type]
                      (res/failure error-message))]
     (with-redefs [http/post2 mock-post2]
       (let [result (fm/move-email-to-mailbox mock-session mock-email-id mock-mailbox-id)]
@@ -183,7 +184,7 @@
         mock-email-id "email-id"
         mock-mailbox-id "mailbox-id"
         mock-session {:apiUrl "url" :apiToken "token"}
-        mock-post2 (fn [_url _api-token _request_body]
+        mock-post2 (fn [_url _api-token _request_body _content_type]
                      (res/success "some dodgy response"))]
     (with-redefs [http/post2 mock-post2]
       (let [result (fm/move-email-to-mailbox mock-session mock-email-id mock-mailbox-id)]
@@ -196,7 +197,7 @@
         mock-mailbox-id "mailbox-id"
         mock-session {:apiUrl "url" :apiToken "token"}
         mock-response-body {:methodResponses [["Email/set" {:notCreated ["email-id"]}]]}
-        mock-post2 (fn [_url _api-token _request_body]
+        mock-post2 (fn [_url _api-token _request_body _content_type]
                      (res/success mock-response-body))]
     (with-redefs [http/post2 mock-post2]
       (let [result (fm/move-email-to-mailbox mock-session mock-email-id mock-mailbox-id)]
@@ -208,7 +209,7 @@
         mock-mailbox-id "mailbox-id"
         mock-session {:apiUrl "url" :apiToken "token"}
         mock-response-body {:methodResponses [["Email/set"]]}
-        mock-post2 (fn [_url _api-token _request_body]
+        mock-post2 (fn [_url _api-token _request_body _content_type]
                      (res/success mock-response-body))]
     (with-redefs [http/post2 mock-post2]
       (let [result (fm/move-email-to-mailbox mock-session mock-email-id mock-mailbox-id)]
@@ -308,6 +309,34 @@
       (let [result (fm/download-blobs mock-session mock-blob-infos)]
         (t/is (res/success result))
         (t/is (= [{:role :mockRole :value mock-blob-content}] (:value result)))))))
+
+(t/deftest upload-blob-post2-fail-test
+  (let [error-message "post2 failed"
+        mock-session {:apiUrl          "url"
+                      :apiToken        "token"
+                      :primaryAccounts {:urn:ietf:params:jmap:mail "account-name"}
+                      :uploadUrl     "{accountId}/{blobId}/{name}/{type}"}
+        mock-blob {:blobId "blobId" :type "image/jpeg"}
+        mock-post2 (fn [_url _api-token _content _content_type]
+                     (res/failure error-message))]
+    (with-redefs [http/post2 mock-post2]
+      (let [result (fm/upload-blob mock-session mock-blob)]
+        (t/is (res/failure? result))
+        (t/is (= (str "upload-blob failed " error-message) (:error result)))))))
+
+(t/deftest upload-blob-success-test
+  (let [mock-session {:apiUrl          "url"
+                      :apiToken        "token"
+                      :primaryAccounts {:urn:ietf:params:jmap:mail "account-name"}
+                      :uploadUrl     "{accountId}/{blobId}/{name}/{type}"}
+        mock-blob {:blobId "blobId" :type "image/jpeg"}
+        mock-blob-id 1234
+        mock-post2 (fn [_url _api-token _content _content_type]
+                     (res/success {:status 200 :headers {"Content-Type" "application/json"} :body (json/encode {:blobId mock-blob-id})}))]
+    (with-redefs [http/post2 mock-post2]
+      (let [result (fm/upload-blob mock-session mock-blob)]
+        (t/is (res/success? result))
+        (t/is (= mock-blob-id (:value result)))))))
 
 
 
