@@ -45,7 +45,8 @@
                                      {:accountId account-id
                                       :ids       nil}
                                      "a"]]}
-        post-result (http2/post2 url api-token request-body "application/json; charset=utf-8")]
+        encoded-request-body (json/encode request-body)
+        post-result (http2/post2 url api-token encoded-request-body "application/json; charset=utf-8")]
     (if (success? post-result)
       (let [body (:value post-result)
             method-responses (:methodResponses body)
@@ -79,7 +80,8 @@
                         {:accountId account-id
                          :ids       nil}
                         "a"]]}
-        post-result (http2/post2 url api-token nil "application/json; charset=utf-8")]
+        encoded-request-body (json/encode request-body)
+        post-result (http2/post2 url api-token encoded-request-body "application/json; charset=utf-8")]
     (pprint post-result)
     (if (success? post-result)
       (let [body (:value post-result)
@@ -124,7 +126,8 @@
                         {:accountId (get-account-id session)
                          :filter    {:inMailbox mailbox-id}}
                         "a"]]}
-        post-result (http2/post2 url api-token request-body "application/json; charset=utf-8")]
+        encoded-request-body (json/encode request-body)
+        post-result (http2/post2 url api-token encoded-request-body "application/json; charset=utf-8")]
     (if (success? post-result)
       (let [body (:value post-result)
             method-responses (:methodResponses body)
@@ -153,7 +156,8 @@
                         {:accountId (get-account-id session)
                          :ids       [email-id]}
                         "a"]]}
-        post-result (http2/post2 url api-token request-body "application/json; charset=utf-8")]
+        encoded-request-body (json/encode request-body)
+        post-result (http2/post2 url api-token encoded-request-body "application/json; charset=utf-8")]
     (if (success? post-result)
       (let [body (:value post-result)
             method-responses (:methodResponses body)
@@ -205,7 +209,8 @@
                         {:accountId (get-account-id session)
                          :update    {email-id {:mailboxIds {mailbox-id true}}}}
                         "a"]]}
-        post-result (http2/post2 url api-token request-body "application/json; charset=utf-8")]
+        encoded-request-body (json/encode request-body)
+        post-result (http2/post2 url api-token encoded-request-body "application/json; charset=utf-8")]
     (if (success? post-result)
       (let [body (:value post-result)
             method-responses (:methodResponses body)
