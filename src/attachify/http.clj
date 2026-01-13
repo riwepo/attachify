@@ -21,6 +21,7 @@
 ;"application/json; charset=utf-8"
 
 (defn post2 [url api-token content content-type]
+  ;; if content-type is json, the content must be json encoded
   (let [headers {"Authorization" (str "Bearer " api-token)
                  "Content-Type" content-type}]
     (try
