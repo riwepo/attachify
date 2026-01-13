@@ -18,18 +18,21 @@
       (catch Exception e
         (log-and-failure "get2 failed" url (.getMessage e))))))
 
-(defn post2 [url api-token body]
+;"application/json; charset=utf-8"
+
+(defn post2 [url api-token content content-type]
   (let [headers {"Authorization" (str "Bearer " api-token)
-                 "Content-Type"  "application/json; charset=utf-8"}]
+                 "Content-Type" content-type}]
     (try
       (let [response (http/post url {:headers headers
-                                     :body    (json/encode body)
+                                     :body    (json/encode content)
+                                     ;:body    content
                                      :as      :auto})
             status (:status response)]
         (if (= status 200)
           (do
-            (log-and-success "get2 succeeded")
+            (log-and-success "post2 succeeded")
             (success (:body response)))
-          (log-and-failure "get2 failed" status url)))
+          (log-and-failure "post2 failed" status url)))
       (catch Exception e
-        (log-and-failure "get2 failed" url (.getMessage e))))))
+        (log-and-failure "post2 failed exception" url (.getMessage e))))))
