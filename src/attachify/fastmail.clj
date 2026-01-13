@@ -45,7 +45,7 @@
                                      {:accountId account-id
                                       :ids       nil}
                                      "a"]]}
-        post-result (http2/post2 url api-token request-body)]
+        post-result (http2/post2 url api-token request-body "application/json; charset=utf-8")]
     (if (success? post-result)
       (let [body (:value post-result)
             method-responses (:methodResponses body)
@@ -79,7 +79,8 @@
                         {:accountId account-id
                          :ids       nil}
                         "a"]]}
-        post-result (http2/post2 url api-token request-body)]
+        post-result (http2/post2 url api-token nil "application/json; charset=utf-8")]
+    (pprint post-result)
     (if (success? post-result)
       (let [body (:value post-result)
             method-responses (:methodResponses body)
@@ -123,7 +124,7 @@
                         {:accountId (get-account-id session)
                          :filter    {:inMailbox mailbox-id}}
                         "a"]]}
-        post-result (http2/post2 url api-token request-body)]
+        post-result (http2/post2 url api-token request-body "application/json; charset=utf-8")]
     (if (success? post-result)
       (let [body (:value post-result)
             method-responses (:methodResponses body)
@@ -152,7 +153,7 @@
                         {:accountId (get-account-id session)
                          :ids       [email-id]}
                         "a"]]}
-        post-result (http2/post2 url api-token request-body)]
+        post-result (http2/post2 url api-token request-body "application/json; charset=utf-8")]
     (if (success? post-result)
       (let [body (:value post-result)
             method-responses (:methodResponses body)
@@ -204,7 +205,7 @@
                         {:accountId (get-account-id session)
                          :update    {email-id {:mailboxIds {mailbox-id true}}}}
                         "a"]]}
-        post-result (http2/post2 url api-token request-body)]
+        post-result (http2/post2 url api-token request-body "application/json; charset=utf-8")]
     (if (success? post-result)
       (let [body (:value post-result)
             method-responses (:methodResponses body)
@@ -239,35 +240,6 @@
 (defn replace-nbsp
   [s]
   (str/replace s #"\u00A0" " "))
-
-;(defn download-blob-old
-;  [session blob-info filename]
-;  (try
-;    (let [ext (get mime->ext (:type blob-info))
-;          filename-with-ext (add-extension-if-missing filename ext)
-;          encoded-filename (url-encode filename-with-ext)
-;          encoded-type (url-encode (:type blob-info))
-;          download-url (-> (:downloadUrl session)
-;                           (str/replace "{accountId}" (get-account-id session))
-;                           (str/replace "{blobId}" (:blobId blob-info))
-;                           (str/replace "{name}" encoded-filename)
-;                           (str/replace "{type}" encoded-type))
-;          headers {"Authorization" (str "Bearer " (:api-token session))}
-;          get-result (http/get download-url {:headers headers :as :byte-array})
-;          bytes (:body response)
-;          decoded-content (if (and (:type blob)
-;                                   (or (str/starts-with? (:type blob-info) "text/")
-;                                       (= (:type blob-info) "application/json")
-;                                       (= (:type blob-info) "application/xml")))
-;                            ;; decode text-like content as string
-;                            (-> (bytes->string bytes :charset "UTF-8")
-;                                replace-nbsp)
-;                            ;; else keep raw bytes (e.g. images, pdfs)
-;                            bytes)]
-;      (tel/log! {:level :debug, :success true :blobId blob-info})
-;      (success decoded-content))
-;    (catch Exception e
-;      (log-and-failure "download-blob failed" (.getMessage e)))))
 
 (defn get-file-extension [mime-type]
   (let [extension (get mime->ext mime-type)]
@@ -330,14 +302,14 @@
             blob-infos
             results)))
       (let [blob-info (first remaining)
-            filename (str (name (:role blob-info)))              ;; Use role name as filename base
+            filename (str (name (:role blob-info)))         ;; Use role name as filename base
             download-result (download-blob session blob-info filename)]
         (if (:error download-result)
           (log-and-failure "download-blobs failed" (:error download-result))
           (recur (rest remaining)
                  (conj results download-result)))))))
 
-(defn upload-blob
+(defn upload-blob-old
   [session blob]
   (try
     (let [upload-url (-> (:uploadUrl session)
@@ -358,6 +330,30 @@
         (log-and-failure "upload-blob failed" (str "Upload failed with status " status " and body: " body))))
     (catch Exception e
       (log-and-failure "upload-blob failed" (.getMessage e)))))
+
+(defn get-upload-url [session]
+  (let [upload-url (-> (:uploadUrl session)
+                       (str/replace "{accountId}" (get-account-id session)))]
+    upload-url))
+
+
+(defn upload-blob
+  [session blob]
+    (let [upload-url (get-upload-url session)
+          api-token (:apiToken session)
+          post-result (http2/post2 upload-url api-token blob (:type blob))]
+      (if (success? post-result)
+        (let [response (:value post-result)
+              status (:status response)
+              content-type (some-> (get-in response [:headers "Content-Type"])
+                                   str/lower-case)
+              body (if (and content-type (str/includes? content-type "application/json"))
+                     (json/parse-string (:body response) true)
+                     nil)]
+          (if (and (= status 200) (contains? body :blobId))
+            (log-and-success (:blobId body) "upload-blob succeeded")
+            (log-and-failure "upload-blob-failed" status body)))
+        (log-and-failure "upload-blob-failed" (:error post-result)))))
 
 (defn get-blobs-info
   [email]
