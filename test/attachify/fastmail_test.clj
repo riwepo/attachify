@@ -359,7 +359,8 @@
                     {:role :htmlBody :value "some html"}
                     {:role :attachment :value "attachment 1" :blobId 1 :name "name 1" :type ".jpg"}
                     {:role :attachment :value "attachment 2" :blobId 2 :name "name 2" :type ".png"}]
-        mock-attachment-info []
+        mock-attachment-info [{:role :attachment :type "image/jpg" :blobId {:old 1 :new 3}}
+                              {:role :attachment :type "image/png" :blobId {:old 2 :new 4}}]
         mock-from "sender"
         mock-to "receiver"
         mock-drafts-id "draftsId"
@@ -381,11 +382,11 @@
               :textBody    [{:partId "text"}]
               :htmlBody    [{:partId "html"}]
               :mailboxIds  {mock-drafts-id true}
-              :attachments [{:blobId      nil
+              :attachments [{:blobId      3
                              :disposition "attachment"
                              :name        "name 1"
                              :type        ".jpg"}
-                            {:blobId      nil
+                            {:blobId      4
                              :disposition "attachment"
                              :name        "name 2"
                              :type        ".png"}]} result))))
