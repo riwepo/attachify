@@ -283,7 +283,7 @@
                                    (res/success "download-url"))
         mock-get2 (fn [_url _api-token]
                     (res/success mock-blob-content))]
-    (with-redefs [fm/create-download-url mock-create-download-url  http/get2 mock-get2]
+    (with-redefs [fm/create-download-url mock-create-download-url http/get2 mock-get2]
       (let [result (fm/download-blob mock-session mock-blob-info mock-filename)]
         (t/is (res/success? result))
         (t/is (= mock-blob-content (:value result)))))))
@@ -315,7 +315,7 @@
         mock-session {:apiUrl          "url"
                       :apiToken        "token"
                       :primaryAccounts {:urn:ietf:params:jmap:mail "account-name"}
-                      :uploadUrl     "{accountId}/{blobId}/{name}/{type}"}
+                      :uploadUrl       "{accountId}/{blobId}/{name}/{type}"}
         mock-blob {:blobId "blobId" :type "image/jpeg"}
         mock-post2 (fn [_url _api-token _content _content_type]
                      (res/failure error-message))]
@@ -328,7 +328,7 @@
   (let [mock-session {:apiUrl          "url"
                       :apiToken        "token"
                       :primaryAccounts {:urn:ietf:params:jmap:mail "account-name"}
-                      :uploadUrl     "{accountId}/{blobId}/{name}/{type}"}
+                      :uploadUrl       "{accountId}/{blobId}/{name}/{type}"}
         mock-blob {:blobId "blobId" :type "image/jpeg"}
         mock-blob-id 1234
         mock-post2 (fn [_url _api-token _content _content_type]
@@ -337,6 +337,61 @@
       (let [result (fm/upload-blob mock-session mock-blob)]
         (t/is (res/success? result))
         (t/is (= mock-blob-id (:value result)))))))
+
+(t/deftest get-blobs-info-test
+  (let [mock-email {:textBody    [{:blobId 1 :type "text-type"}]
+                    :htmlBody    [{:blobId 2 :type "html-type"}]
+                    :attachments [{:blobId 3 :type "attachment"}]}
+        result (fm/get-blobs-info mock-email)]
+    (t/is (= result [{:blobId 1
+                      :role   :textBody
+                      :type   "text-type"}
+                     {:blobId 2
+                      :role   :htmlBody
+                      :type   "html-type"}
+                     {:blobId 3
+                      :name   nil
+                      :role   :attachment
+                      :type   "attachment"}]))))
+
+(t/deftest build-draft-email-test
+  (let [mock-blobs [{:role :textBody :value "some text"}
+                    {:role :htmlBody :value "some html"}
+                    {:role :attachment :value "attachment 1" :blobId 1 :name "name 1" :type ".jpg"}
+                    {:role :attachment :value "attachment 2" :blobId 2 :name "name 2" :type ".png"}]
+        mock-attachment-info []
+        mock-from "sender"
+        mock-to "receiver"
+        mock-drafts-id "draftsId"
+        mock-subject "the subject"
+        result (fm/build-draft-email
+                 mock-blobs
+                 mock-attachment-info
+                 mock-from
+                 mock-to
+                 mock-drafts-id
+                 mock-subject)]
+    (t/is (= {:from        [{:email mock-from}]
+              :to          [{:email mock-to}]
+              :subject     mock-subject
+              :bodyValues  {"html" {:charset "utf-8"
+                                    :value   "some html"}
+                            "text" {:charset "utf-8"
+                                    :value   "some text"}}
+              :textBody    [{:partId "text"}]
+              :htmlBody    [{:partId "html"}]
+              :mailboxIds  {mock-drafts-id true}
+              :attachments [{:blobId      nil
+                             :disposition "attachment"
+                             :name        "name 1"
+                             :type        ".jpg"}
+                            {:blobId      nil
+                             :disposition "attachment"
+                             :name        "name 2"
+                             :type        ".png"}]} result))))
+
+
+
 
 
 
