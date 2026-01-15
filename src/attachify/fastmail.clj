@@ -321,21 +321,21 @@
 
 (defn upload-blob
   [session blob]
-    (let [upload-url (get-upload-url session)
-          api-token (:apiToken session)
-          post-result (http2/post2 upload-url api-token blob (:type blob))]
-      (if (success? post-result)
-        (let [response (:value post-result)
-              status (:status response)
-              content-type (some-> (get-in response [:headers "Content-Type"])
-                                   str/lower-case)
-              body (if (and content-type (str/includes? content-type "application/json"))
-                     (json/parse-string (:body response) true)
-                     nil)]
-          (if (and (= status 200) (contains? body :blobId))
-            (log-and-success (:blobId body) "upload-blob succeeded")
-            (log-and-failure "upload-blob failed" status body)))
-        (log-and-failure "upload-blob failed" (:error post-result)))))
+  (let [upload-url (get-upload-url session)
+        api-token (:apiToken session)
+        post-result (http2/post2 upload-url api-token blob (:type blob))]
+    (if (success? post-result)
+      (let [response (:value post-result)
+            status (:status response)
+            content-type (some-> (get-in response [:headers "Content-Type"])
+                                 str/lower-case)
+            body (if (and content-type (str/includes? content-type "application/json"))
+                   (json/parse-string (:body response) true)
+                   nil)]
+        (if (and (= status 200) (contains? body :blobId))
+          (log-and-success (:blobId body) "upload-blob succeeded")
+          (log-and-failure "upload-blob failed" status body)))
+      (log-and-failure "upload-blob failed" (:error post-result)))))
 
 (defn get-blobs-info
   [email]
@@ -390,7 +390,7 @@
      :attachments attachments}))
 
 
-(defn create-draft-email
+(defn create-draft-email-old
   [session email-object]
   (try
     (let [account-id (get-account-id session)
@@ -426,6 +426,40 @@
                                                              "Unknown error creating draft email"))))
     (catch Exception e
       (log-and-failure "create-draft-email failed" (.getMessage e)))))
+
+(defn create-draft-email
+  [session email-object]
+  (let [account-id (get-account-id session)
+        draft-id "draft_message"
+        method-calls [["Email/set"
+                       {:accountId account-id
+                        :create    {draft-id email-object}}
+                       "0"]]
+        request-body {:using       ["urn:ietf:params:jmap:core" "urn:ietf:params:jmap:mail"]
+                      :methodCalls method-calls}
+        request-body-encoded (json/encode request-body)
+        post-result (http2/post2 (:apiUrl session) (:api-token session) request-body-encoded "application/json; charset=utf-8")]
+    (if (success? post-result)
+      (let [body (:value post-result)
+            method-responses (:methodResponses body)
+            error-response (first (filter #(= "error" (first %)) method-responses))
+            email-set-response (first (filter #(= "Email/set" (first %)) method-responses))
+            created-map (get-in email-set-response [1 :created])
+            created-email-id (get-in created-map [(keyword draft-id) :id])]
+
+            (cond
+              error-response
+              (let [{:keys [arguments type]} (second error-response)
+                    error-msg (str "API error: " type ", arguments: " arguments)]
+                (log-and-failure "create-draft-email failed" error-msg))
+
+              created-email-id
+              (log-and-success created-email-id "create-draft-email succeeded")
+
+              :else
+              (log-and-failure "create-draft-email failed" (get-in email-set-response [1 :notCreated (keyword draft-id) :description]
+                                                                   "Unknown error creating draft email"))))
+      (log-and-failure "create-draft-email failed"))))
 
 
 
