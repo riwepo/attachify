@@ -442,6 +442,48 @@
         (t/is (res/success? result))
         (t/is (= mock-created-email-id (:value result)))))))
 
+(t/deftest upload-attachments-blob-not-attachment-fail-test
+  (let [mock-session {:apiUrl   "url"
+                      :apiToken "token"}
+        mock-blobs [1 2 3]
+        mock-upload-blob (fn [_session _blob]
+                           (res/success nil))]
+    (with-redefs [fm/upload-blob mock-upload-blob]
+      (let [result (fm/upload-attachments mock-session mock-blobs)]
+        (t/is (res/failure? result))
+        (t/is (= (str "upload-attachments failed Blob role is not :attachment") (:error result)))))))
+
+(t/deftest upload-attachments-upload-blob-fail-test
+  (let [mock-error-message "upload-blob failed"
+        mock-session {:apiUrl   "url"
+                      :apiToken "token"}
+        mock-blobs [{:role :attachment}]
+        mock-upload-blob (fn [_session _blob]
+                           (res/failure mock-error-message))]
+    (with-redefs [fm/upload-blob mock-upload-blob]
+      (let [result (fm/upload-attachments mock-session mock-blobs)]
+        (t/is (res/failure? result))
+        (t/is (= (str "upload-attachments failed " mock-error-message) (:error result)))))))
+
+(t/deftest upload-attachments-success-test
+  (let [mock-session {:apiUrl   "url"
+                      :apiToken "token"}
+        mock-blobs [{:role :attachment :blobId 1 :type "image/jpeg"}
+                    {:role :attachment :blobId 2 :type "image/png"}]
+        mock-upload-blob (fn [_session blob]
+                           (res/success (+ 10 (:blobId blob))))]
+    (with-redefs [fm/upload-blob mock-upload-blob]
+      (let [result (fm/upload-attachments mock-session mock-blobs)]
+        (t/is (res/success? result))
+        (t/is (= [{:blobId {:new 11
+                            :old 1}
+                   :role   :attachment
+                   :type   "image/jpeg"}
+                  {:blobId {:new 12
+                            :old 2}
+                   :role   :attachment
+                   :type   "image/png"}] (:value result)))))))
+
 
 
 
