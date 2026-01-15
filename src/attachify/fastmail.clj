@@ -444,7 +444,6 @@
           (log-and-failure "upload-attachments failed" "Blob role is not :attachment"))))))
 
 
-
 (defn submit-email
   [session email-id identity-id]
   (let [account-id (get-account-id session)
@@ -456,36 +455,28 @@
                        "0"]]
         request-body {:using       ["urn:ietf:params:jmap:core" "urn:ietf:params:jmap:mail" "urn:ietf:params:jmap:submission"]
                       :methodCalls method-calls}
-        headers {"Authorization" (str "Bearer " (:api-token session))
-                 "Content-Type"  "application/json; charset=utf-8"}]
-    (try
-      (let [response (http/post (:apiUrl session)
-                                {:headers headers
-                                 :body    (json/encode request-body)
-                                 :as      :auto})
-            status (:status response)
-            body (:body response)
-            method-responses (:methodResponses body)
+        encoded-request-body (json/encode request-body)
+        post-result (http2/post2
+                      (:apiUrl session)
+                      (:api-token session)
+                      encoded-request-body
+                      "application/json; charset=utf-8")]
+    (if (success? post-result)
+      (let [response-body (:value post-result)
+            method-responses (:methodResponses response-body)
             error-response (first (filter #(= "error" (first %)) method-responses))]
         (cond
+
           error-response
           (let [{:keys [arguments type]} (second error-response)
                 error-msg (str "API error: " type ", arguments: " arguments)]
             (log-and-failure "submit-email failed" error-msg))
 
-          (and (>= status 200) (< status 300))
-          (do
-            (tel/log! {:level :debug, :success true :email-id email-id})
-            (success email-id))
+          "something" nil
 
           :else
-          (log-and-failure "submit-email failed" (str "status: " status))))
-      (catch Exception e
-        (log-and-failure "submit-email failed" (.getMessage e))))))
-
-
-
-
+          (log-and-failure "submit-email failed with unexpected error")))
+      (log-and-failure "submit-email failed" (:error post-result)))))
 
 
 (comment
