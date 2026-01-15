@@ -389,44 +389,6 @@
                           html (assoc "html" {:value html :charset "utf-8"}))
      :attachments attachments}))
 
-
-(defn create-draft-email-old
-  [session email-object]
-  (try
-    (let [account-id (get-account-id session)
-          draft-id "draft_message"
-          method-calls [["Email/set"
-                         {:accountId account-id
-                          :create    {draft-id email-object}}
-                         "0"]]
-          request-body {:using       ["urn:ietf:params:jmap:core" "urn:ietf:params:jmap:mail"]
-                        :methodCalls method-calls}
-          response (http/post (:apiUrl session)
-                              {:headers {"Authorization" (str "Bearer " (:api-token session))
-                                         "Content-Type"  "application/json; charset=utf-8"}
-                               :body    (json/encode request-body)
-                               :as      :auto})
-          body (:body response)
-          method-responses (:methodResponses body)
-          error-response (first (filter #(= "error" (first %)) method-responses))
-          email-set-response (first (filter #(= "Email/set" (first %)) method-responses))
-          created-map (get-in email-set-response [1 :created])
-          real-email-id (get-in created-map [(keyword draft-id) :id])]
-      (cond
-        error-response
-        (let [{:keys [arguments type]} (second error-response)
-              error-msg (str "API error: " type ", arguments: " arguments)]
-          (log-and-failure "create-draft-email failed" error-msg))
-
-        real-email-id
-        (log-and-success real-email-id "create-draft-email succeeded")
-
-        :else
-        (log-and-failure "create-draft-email failed" (get-in email-set-response [1 :notCreated (keyword draft-id) :description]
-                                                             "Unknown error creating draft email"))))
-    (catch Exception e
-      (log-and-failure "create-draft-email failed" (.getMessage e)))))
-
 (defn create-draft-email
   [session email-object]
   (let [account-id (get-account-id session)
@@ -439,6 +401,7 @@
                       :methodCalls method-calls}
         request-body-encoded (json/encode request-body)
         post-result (http2/post2 (:apiUrl session) (:api-token session) request-body-encoded "application/json; charset=utf-8")]
+
     (if (success? post-result)
       (let [body (:value post-result)
             method-responses (:methodResponses body)
@@ -447,21 +410,19 @@
             created-map (get-in email-set-response [1 :created])
             created-email-id (get-in created-map [(keyword draft-id) :id])]
 
-            (cond
-              error-response
-              (let [{:keys [arguments type]} (second error-response)
-                    error-msg (str "API error: " type ", arguments: " arguments)]
-                (log-and-failure "create-draft-email failed" error-msg))
+        (cond
+          error-response
+          (let [{:keys [arguments type]} (second error-response)
+                error-msg (str "API error: " type ", arguments: " arguments)]
+            (log-and-failure "create-draft-email failed" error-msg))
 
-              created-email-id
-              (log-and-success created-email-id "create-draft-email succeeded")
+          created-email-id
+          (log-and-success created-email-id "create-draft-email succeeded")
 
-              :else
-              (log-and-failure "create-draft-email failed" (get-in email-set-response [1 :notCreated (keyword draft-id) :description]
-                                                                   "Unknown error creating draft email"))))
-      (log-and-failure "create-draft-email failed"))))
-
-
+          :else
+          (log-and-failure "create-draft-email failed" (get-in email-set-response [1 :notCreated (keyword draft-id) :description]
+                                                               "Unknown error creating draft email"))))
+      (log-and-failure "create-draft-email failed" (:error post-result)))))
 
 (defn upload-attachments
   [session blobs]

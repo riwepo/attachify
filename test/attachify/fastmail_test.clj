@@ -338,7 +338,7 @@
         (t/is (res/success? result))
         (t/is (= mock-blob-id (:value result)))))))
 
-(t/deftest get-blobs-info-test
+(t/deftest get-blobs-info-success-test
   (let [mock-email {:textBody    [{:blobId 1 :type "text-type"}]
                     :htmlBody    [{:blobId 2 :type "html-type"}]
                     :attachments [{:blobId 3 :type "attachment"}]}
@@ -354,7 +354,7 @@
                       :role   :attachment
                       :type   "attachment"}]))))
 
-(t/deftest build-draft-email-test
+(t/deftest build-draft-email-success-test
   (let [mock-blobs [{:role :textBody :value "some text"}
                     {:role :htmlBody :value "some html"}
                     {:role :attachment :value "attachment 1" :blobId 1 :name "name 1" :type ".jpg"}
@@ -390,6 +390,57 @@
                              :disposition "attachment"
                              :name        "name 2"
                              :type        ".png"}]} result))))
+
+(t/deftest create-draft-email-post2-fail-test
+  (let [error-message "post2 failed"
+        mock-session {:apiUrl          "url"
+                      :apiToken        "token"
+                      :primaryAccounts {:urn:ietf:params:jmap:mail "account-name"}
+                      :uploadUrl       "{accountId}/{blobId}/{name}/{type}"}
+        mock-email {:blobId "blobId" :type "image/jpeg"}
+        mock-post2 (fn [_url _api-token _content _content_type]
+                     (res/failure error-message))]
+    (with-redefs [http/post2 mock-post2]
+      (let [result (fm/create-draft-email mock-session mock-email)]
+        (t/is (res/failure? result))
+        (t/is (= (str "create-draft-email failed " error-message) (:error result)))))))
+
+(t/deftest create-draft-email-API-error-fail-test
+  (let [mock-session {:apiUrl   "url"
+                      :apiToken "token"}
+        mock-post-response-body {:methodResponses [["error" ""]]}
+        mock-email "mock email"
+        mock-post2 (fn [_url _api-token _content _content_type]
+                     (res/success mock-post-response-body))]
+    (with-redefs [http/post2 mock-post2]
+      (let [result (fm/create-draft-email mock-session mock-email)]
+        (t/is (res/failure? result))
+        (t/is (= "create-draft-email failed API error: , arguments: " (:error result)))))))
+
+(t/deftest create-draft-email-unexpected-error-fail-test
+  (let [mock-session {:apiUrl   "url"
+                      :apiToken "token"}
+        mock-post-response-body "some dodgy response"
+        mock-email "mock email"
+        mock-post2 (fn [_url _api-token _content _content_type]
+                     (res/success mock-post-response-body))]
+    (with-redefs [http/post2 mock-post2]
+      (let [result (fm/create-draft-email mock-session mock-email)]
+        (t/is (res/failure? result))
+        (t/is (= "create-draft-email failed Unknown error creating draft email" (:error result)))))))
+
+(t/deftest create-draft-email-success-test
+  (let [mock-session {:apiUrl   "url"
+                      :apiToken "token"}
+        mock-created-email-id 666
+        mock-post-response-body {:methodResponses [["Email/set" {:created {:draft_message {:id mock-created-email-id}}}]]}
+        mock-email "mock email"
+        mock-post2 (fn [_url _api-token _content _content_type]
+                     (res/success mock-post-response-body))]
+    (with-redefs [http/post2 mock-post2]
+      (let [result (fm/create-draft-email mock-session mock-email)]
+        (t/is (res/success? result))
+        (t/is (= mock-created-email-id (:value result)))))))
 
 
 
