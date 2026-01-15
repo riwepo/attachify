@@ -502,8 +502,7 @@
 (t/deftest submit-email-API-error-fail-test
   (let [mock-session {:apiUrl          "url"
                       :apiToken        "token"
-                      :primaryAccounts {:urn:ietf:params:jmap:mail "account-name"}
-                      :uploadUrl       "{accountId}/{blobId}/{name}/{type}"}
+                      :primaryAccounts {:urn:ietf:params:jmap:mail "account-name"}}
         mock-email-id 1234
         mock-identity-id "identity"
         mock-error-type "the type"
@@ -515,6 +514,23 @@
       (let [result (fm/submit-email mock-session mock-email-id mock-identity-id)]
         (t/is (res/failure? result))
         (t/is (= (str "submit-email failed API error: type: " mock-error-type ", arguments: " mock-error-arguments) (:error result)))))))
+
+(t/deftest submit-email-unexpected-error-fail-test
+  (let [mock-session {:apiUrl          "url"
+                      :apiToken        "token"
+                      :primaryAccounts {:urn:ietf:params:jmap:mail "account-name"}}
+        mock-email-id 1234
+        mock-identity-id "identity"
+        mock-response-body "some-dodgy-response"
+        mock-post2 (fn [_url _api-token _content _content_type]
+                     (res/success mock-response-body))]
+    (with-redefs [http/post2 mock-post2]
+      (let [result (fm/submit-email mock-session mock-email-id mock-identity-id)]
+        (t/is (res/failure? result))
+        (t/is (= "submit-email failed with unexpected error" (:error result)))))))
+
+
+
 
 
 

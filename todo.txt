@@ -10,3 +10,5 @@ add logging
 put in babashka
 
 put in docker
+
+standardise API response error chacks and extract value

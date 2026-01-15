@@ -464,7 +464,8 @@
     (if (success? post-result)
       (let [response-body (:value post-result)
             method-responses (:methodResponses response-body)
-            error-response (first (filter #(= "error" (first %)) method-responses))]
+            error-response (first (filter #(= "error" (first %)) method-responses))
+            created-response (get method-responses [1 :created])]
         (cond
 
           error-response
@@ -472,7 +473,8 @@
                 error-msg (str "API error: type: " type ", arguments: " arguments)]
             (log-and-failure "submit-email failed" error-msg))
 
-          "something" nil
+          created-response
+          (log-and-success (:id created-response) "submit-email succeeded")
 
           :else
           (log-and-failure "submit-email failed with unexpected error")))

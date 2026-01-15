@@ -26,8 +26,7 @@
                  "Content-Type" content-type}]
     (try
       (let [response (http/post url {:headers headers
-                                     :body    (json/encode content)
-                                     ;:body    content
+                                     :body    content
                                      :as      :auto})
             status (:status response)]
         (if (= status 200)
