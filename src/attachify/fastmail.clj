@@ -429,21 +429,20 @@
   (loop [remaining blobs
          results []]
     (if (empty? remaining)
-      (do
-        (tel/log! {:level :debug, :success true})
-        (success results))
+      (log-and-success results "upload-attachments succeeded")
       (let [blob (first remaining)]
         (if (= (:role blob) :attachment)
           (let [upload-result (upload-blob session blob)]
             (if (:error upload-result)
-              (log-and-failure "upload-attachments failed" (:error-message upload-result))
+              (log-and-failure "upload-attachments failed" (:error upload-result))
               (recur (rest remaining)
                      (conj results {:role   (:role blob)
                                     :blobId {:old (:blobId blob)
                                              :new (:value upload-result)}
                                     :type   (:type blob)}))))
-          ;; Not an attachment, skip it
-          (recur (rest remaining) results))))))
+          ;; Blob role is not :attachment, return error immediately
+          (log-and-failure "upload-attachments failed" "Blob role is not :attachment"))))))
+
 
 
 (defn submit-email
