@@ -484,6 +484,21 @@
                    :role   :attachment
                    :type   "image/png"}] (:value result)))))))
 
+(t/deftest submit-email-post2-fail-test
+  (let [mock-error-message "post2 failed"
+        mock-session {:apiUrl          "url"
+                      :apiToken        "token"
+                      :primaryAccounts {:urn:ietf:params:jmap:mail "account-name"}
+                      :uploadUrl       "{accountId}/{blobId}/{name}/{type}"}
+        mock-email-id 1234
+        mock-identity-id "identity"
+        mock-post2 (fn [_url _api-token _content _content_type]
+                     (res/failure mock-error-message))]
+    (with-redefs [http/post2 mock-post2]
+      (let [result (fm/submit-email mock-session mock-email-id mock-identity-id)]
+        (t/is (res/failure? result))
+        (t/is (= (str "submit-email failed " mock-error-message) (:error result)))))))
+
 
 
 
