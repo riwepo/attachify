@@ -469,7 +469,7 @@
 
           error-response
           (let [{:keys [arguments type]} (second error-response)
-                error-msg (str "API error: " type ", arguments: " arguments)]
+                error-msg (str "API error: type: " type ", arguments: " arguments)]
             (log-and-failure "submit-email failed" error-msg))
 
           "something" nil
