@@ -38,7 +38,7 @@
         (t/is (= mock-session (:value result)))))))
 
 (t/deftest fetch-identity-info-post2-fail-test
-  (let [error-message "post2 fail"
+  (let [error-message "post2 failed"
         mock-session {:apiUrl "url" :apiToken "token"}
         mock-post2 (fn [_url _api-token _request_body _content_type]
                      (res/failure error-message))]
@@ -47,15 +47,26 @@
         (t/is (res/failure? result))
         (t/is (= (str "fetch-identity-info failed " error-message) (:error result)))))))
 
-(t/deftest fetch-identity-info-format-fail-test
-  (let [error-message "Neither Identity/get nor error response found"
-        mock-session {:apiUrl "url" :apiToken "token"}
+(t/deftest fetch-identity-info-API-fail-test
+  (let [mock-session {:apiUrl "url" :apiToken "token"}
+        mock-error-type "the type"
+        mock-error-arguments "the arguments"
+        mock-response-body {:methodResponses [["error" {:arguments mock-error-arguments :type mock-error-type}]]}
+        mock-post2 (fn [_url _api-token _request_body _content_type]
+                     (res/success mock-response-body))]
+    (with-redefs [http/post2 mock-post2]
+      (let [result (fm/fetch-identity-info mock-session)]
+        (t/is (res/failure? result))
+        (t/is (= "fetch-identity-info failed post response failed with API error: type the type, arguments: the arguments" (:error result)))))))
+
+(t/deftest fetch-identity-info-unknown-fail-test
+  (let [mock-session {:apiUrl "url" :apiToken "token"}
         mock-post2 (fn [_url _api-token _request_body _content_type]
                      (res/success "some dodgy response"))]
     (with-redefs [http/post2 mock-post2]
       (let [result (fm/fetch-identity-info mock-session)]
         (t/is (res/failure? result))
-        (t/is (= (str "fetch-identity-info failed " error-message) (:error result)))))))
+        (t/is (= "fetch-identity-info failed post response failed with unknown error" (:error result)))))))
 
 (t/deftest fetch-identity-info-success-test
   (let [mock-session {:apiUrl "url" :apiToken "token"}
@@ -78,15 +89,27 @@
         (t/is (res/failure? result))
         (t/is (= (str "fetch-mailbox-info failed " error-message) (:error result)))))))
 
-(t/deftest fetch-mailbox-info-format-fail-test
-  (let [error-message "Neither Mailbox/get nor error response found"
-        mock-session {:apiUrl "url" :apiToken "token"}
+(t/deftest fetch-mailbox-info-API-fail-test
+  (let [mock-session {:apiUrl "url" :apiToken "token"}
+        mock-error-type "the type"
+        mock-error-arguments "the arguments"
+        mock-response-body {:methodResponses [["error" {:arguments mock-error-arguments :type mock-error-type}]]}
+        mock-post2 (fn [_url _api-token _request_body _content-type]
+                     (res/success mock-response-body))]
+    (with-redefs [http/post2 mock-post2]
+      (let [result (fm/fetch-mailbox-info mock-session)]
+        (t/is (res/failure? result))
+        (t/is (= "fetch-mailbox-info failed post response failed with API error: type the type, arguments: the arguments" (:error result)))))))
+
+(t/deftest fetch-mailbox-info-unknown-fail-test
+  (let [mock-session {:apiUrl "url" :apiToken "token"}
         mock-post2 (fn [_url _api-token _request_body _content-type]
                      (res/success "some dodgy response"))]
     (with-redefs [http/post2 mock-post2]
       (let [result (fm/fetch-mailbox-info mock-session)]
         (t/is (res/failure? result))
-        (t/is (= (str "fetch-mailbox-info failed " error-message) (:error result)))))))
+        (t/is (= "fetch-mailbox-info failed post response failed with unknown error" (:error result)))))))
+
 
 (t/deftest fetch-mailbox-info-success-test
   (let [mock-session {:apiUrl "url" :apiToken "token"}

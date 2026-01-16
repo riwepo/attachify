@@ -1,7 +1,6 @@
 (ns attachify.fastmail
   (:require [clojure.string :as str]
             [clojure.pprint :refer [pprint]]
-            [clj-http.client :as http]
             [cheshire.core :as json]
             [taoensso.telemere :as tel]
             [attachify.result :refer [success success?]]
@@ -33,6 +32,23 @@
   [identity-info]
   (get-in identity-info [0 :id]))
 
+(defn process-response [extractor response-body]
+  (let [method-responses (:methodResponses response-body)
+        error-response (first (filter #(= "error" (first %)) method-responses))]
+    (if error-response
+      (let [{:keys [arguments type]} (second error-response)]
+        (log-and-failure (str "post response failed with API error: type " type ", arguments: " arguments)))
+      (let [result (extractor method-responses)]
+        (if result
+          (log-and-success result "post response succeeded")
+          (log-and-failure "post response failed with unknown error"))))))
+
+(defn extract-identity-info [method-responses]
+  (let [identity-get-response (first (filter #(= "Identity/get" (first %)) method-responses))
+        identity-info (get-in identity-get-response [1 :list])
+        result (get-identity-id identity-info)]
+    result))
+
 (defn fetch-identity-info
   [session]
   (let [url (:apiUrl session)
@@ -48,28 +64,14 @@
         encoded-request-body (json/encode request-body)
         post-result (http2/post2 url api-token encoded-request-body "application/json; charset=utf-8")]
     (if (success? post-result)
-      (let [body (:value post-result)
-            method-responses (:methodResponses body)
-            error-response (first (filter #(= "error" (first %)) method-responses))
-            identity-get-response (first (filter #(= "Identity/get" (first %)) method-responses))]
-
-        (cond
-          error-response
-          (let [{:keys [arguments type]} (second error-response)
-                error-msg (str "API error: " type ", arguments: " arguments)]
-            (log-and-failure "fetch-identity-info failed" error-msg))
-
-          identity-get-response
-          (let [identity-info (get-in identity-get-response [1 :list])]
-            (if (sequential? identity-info)
-              (log-and-success (get-identity-id identity-info) "fetch-identity-info succeeded")
-              (log-and-failure "fetch-identity-info failed" "Identity/get response malformed")))
-
-          :else
-          (log-and-failure "fetch-identity-info failed" "Neither Identity/get nor error response found")))
+      (let [process-response-result (process-response extract-identity-info (:value post-result))]
+        (if (success? process-response-result)
+          (log-and-success (:value process-response-result) "fetch-identity-info succeeded")
+          (log-and-failure "fetch-identity-info failed" (:error process-response-result))))
       (log-and-failure "fetch-identity-info failed" (:error post-result)))))
 
-(defn fetch-mailbox-info
+
+(defn fetch-mailbox-info-old
   [session]
   (let [url (:apiUrl session)
         api-token (:apiToken session)
@@ -101,6 +103,31 @@
           :else
           (log-and-failure "fetch-mailbox-info failed" "Neither Mailbox/get nor error response found")))
       (log-and-failure "fetch-mailbox-info failed" (:error post-result)))))
+
+(defn extract-mailbox-info [method-responses]
+  (let [mailbox-get-response (first (filter #(= "Mailbox/get" (first %)) method-responses))
+        result (:list (second mailbox-get-response))]
+    result))
+
+(defn fetch-mailbox-info
+  [session]
+  (let [url (:apiUrl session)
+        api-token (:apiToken session)
+        account-id (get-account-id session)
+        request-body {:using ["urn:ietf:params:jmap:core" "urn:ietf:params:jmap:mail"]
+                      :methodCalls
+                      [["Mailbox/get"
+                        {:accountId account-id
+                         :ids       nil}
+                        "a"]]}
+        encoded-request-body (json/encode request-body)
+        post-result (http2/post2 url api-token encoded-request-body "application/json; charset=utf-8")]
+      (if (success? post-result)
+        (let [process-response-result (process-response extract-mailbox-info (:value post-result))]
+          (if (success? process-response-result)
+            (log-and-success (:value process-response-result) "fetch-mailbox-info succeeded")
+            (log-and-failure "fetch-mailbox-info failed" (:error process-response-result))))
+        (log-and-failure "fetch-mailbox-info failed" (:error post-result)))))
 
 (defn get-mailbox-id-by-name
   [mailbox-info mailbox-name]
