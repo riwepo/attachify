@@ -12,3 +12,7 @@ put in babashka
 put in docker
 
 standardise API response error chacks and extract value
+
+refactor submit email
+tests for core
+then above
