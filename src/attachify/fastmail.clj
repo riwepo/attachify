@@ -70,40 +70,6 @@
           (log-and-failure "fetch-identity-info failed" (:error process-response-result))))
       (log-and-failure "fetch-identity-info failed" (:error post-result)))))
 
-
-(defn fetch-mailbox-info-old
-  [session]
-  (let [url (:apiUrl session)
-        api-token (:apiToken session)
-        account-id (get-account-id session)
-        request-body {:using ["urn:ietf:params:jmap:core" "urn:ietf:params:jmap:mail"]
-                      :methodCalls
-                      [["Mailbox/get"
-                        {:accountId account-id
-                         :ids       nil}
-                        "a"]]}
-        encoded-request-body (json/encode request-body)
-        post-result (http2/post2 url api-token encoded-request-body "application/json; charset=utf-8")]
-    (pprint post-result)
-    (if (success? post-result)
-      (let [body (:value post-result)
-            method-responses (:methodResponses body)
-            error-response (first (filter #(= "error" (first %)) method-responses))
-            mailbox-get-response (first (filter #(= "Mailbox/get" (first %)) method-responses))]
-        (cond
-          error-response
-          (let [{:keys [arguments type]} (second error-response)
-                error-msg (str "API error: " type ", arguments: " arguments)]
-            (log-and-failure "fetch-mailbox-info failed" error-msg))
-
-          mailbox-get-response
-          (let [result (:list (second mailbox-get-response))]
-            (log-and-success result "fetch-mailbox-info succeeded"))
-
-          :else
-          (log-and-failure "fetch-mailbox-info failed" "Neither Mailbox/get nor error response found")))
-      (log-and-failure "fetch-mailbox-info failed" (:error post-result)))))
-
 (defn extract-mailbox-info [method-responses]
   (let [mailbox-get-response (first (filter #(= "Mailbox/get" (first %)) method-responses))
         result (:list (second mailbox-get-response))]
@@ -143,7 +109,7 @@
             (:id mbox)))
         mailbox-info))
 
-(defn fetch-email-ids
+(defn fetch-email-ids-old
   [session mailbox-id]
   (let [url (:apiUrl session)
         api-token (:apiToken session)
@@ -171,6 +137,30 @@
 
           :else
           (log-and-failure "fetch-email-ids failed" "Neither Email/query nor error response found")))
+      (log-and-failure "fetch-email-ids failed" (:error post-result)))))
+
+(defn extract-email-ids [method-responses]
+  (let [email-query-response (first (filter #(= "Email/query" (first %)) method-responses))
+        result (:ids (second email-query-response))]
+    result))
+
+(defn fetch-email-ids
+  [session mailbox-id]
+  (let [url (:apiUrl session)
+        api-token (:apiToken session)
+        request-body {:using ["urn:ietf:params:jmap:core" "urn:ietf:params:jmap:mail"]
+                      :methodCalls
+                      [["Email/query"
+                        {:accountId (get-account-id session)
+                         :filter    {:inMailbox mailbox-id}}
+                        "a"]]}
+        encoded-request-body (json/encode request-body)
+        post-result (http2/post2 url api-token encoded-request-body "application/json; charset=utf-8")]
+    (if (success? post-result)
+      (let [process-response-result (process-response extract-email-ids (:value post-result))]
+        (if (success? process-response-result)
+          (log-and-success (:value process-response-result) "fetch-email-ids succeeded")
+          (log-and-failure "fetch-email-ids failed" (:error process-response-result))))
       (log-and-failure "fetch-email-ids failed" (:error post-result)))))
 
 (defn fetch-email

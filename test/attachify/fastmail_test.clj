@@ -133,16 +133,29 @@
         (t/is (res/failure? result))
         (t/is (= (str "fetch-email-ids failed " error-message) (:error result)))))))
 
-(t/deftest fetch-email-ids-format-fail-test
-  (let [error-message "Neither Email/query nor error response found"
-        mock-mailbox-id "P-Y"
+(t/deftest fetch-email-ids-API-fail-test
+  (let [mock-mailbox-id "P-Y"
+        mock-session {:apiUrl "url" :apiToken "token"}
+        mock-error-type "the type"
+        mock-error-arguments "the arguments"
+        mock-response-body {:methodResponses [["error" {:arguments mock-error-arguments :type mock-error-type}]]}
+        mock-post2 (fn [_url _api-token _request_body _content_type]
+                     (res/success mock-response-body))]
+    (with-redefs [http/post2 mock-post2]
+      (let [result (fm/fetch-email-ids mock-session mock-mailbox-id)]
+        (t/is (res/failure? result))
+        (t/is (= "fetch-email-ids failed post response failed with API error: type the type, arguments: the arguments" (:error result)))))))
+
+(t/deftest fetch-email-ids-unknown-fail-test
+  (let [mock-mailbox-id "P-Y"
         mock-session {:apiUrl "url" :apiToken "token"}
         mock-post2 (fn [_url _api-token _request_body _content_type]
                      (res/success "some dodgy response"))]
     (with-redefs [http/post2 mock-post2]
       (let [result (fm/fetch-email-ids mock-session mock-mailbox-id)]
         (t/is (res/failure? result))
-        (t/is (= (str "fetch-email-ids failed " error-message) (:error result)))))))
+        (t/is (= "fetch-email-ids failed post response failed with unknown error" (:error result)))))))
+
 
 (t/deftest fetch-email-ids-success-test
   (let [mock-session {:apiUrl "url" :apiToken "token"}
