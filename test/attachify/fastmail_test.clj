@@ -227,9 +227,22 @@
         (t/is (res/failure? result))
         (t/is (= (str "move-email-to-mailbox failed " error-message) (:error result)))))))
 
-(t/deftest move-email-to-mailbox-format-fail-test
-  (let [error-message "No Email/set response found"
-        mock-email-id "email-id"
+(t/deftest move-email-to-mailbox-API-fail-test
+  (let [mock-email-id "email-id"
+        mock-mailbox-id "mailbox-id"
+        mock-session {:apiUrl "url" :apiToken "token"}
+        mock-error-type "the type"
+        mock-error-arguments "the arguments"
+        mock-response-body {:methodResponses [["error" {:arguments mock-error-arguments :type mock-error-type}]]}
+        mock-post2 (fn [_url _api-token _request_body _content_type]
+                     (res/success mock-response-body))]
+    (with-redefs [http/post2 mock-post2]
+      (let [result (fm/move-email-to-mailbox mock-session mock-email-id mock-mailbox-id)]
+        (t/is (res/failure? result))
+        (t/is (= "move-email-to-mailbox failed post response failed with API error: type the type, arguments: the arguments" (:error result)))))))
+
+(t/deftest move-email-to-mailbox-unknown-fail-test
+  (let [mock-email-id "email-id"
         mock-mailbox-id "mailbox-id"
         mock-session {:apiUrl "url" :apiToken "token"}
         mock-post2 (fn [_url _api-token _request_body _content_type]
@@ -237,32 +250,20 @@
     (with-redefs [http/post2 mock-post2]
       (let [result (fm/move-email-to-mailbox mock-session mock-email-id mock-mailbox-id)]
         (t/is (res/failure? result))
-        (t/is (= (str "move-email-to-mailbox failed " error-message) (:error result)))))))
-
-(t/deftest move-email-to-mailbox-not-created-fail-test
-  (let [error-message "not created response received"
-        mock-email-id "email-id"
-        mock-mailbox-id "mailbox-id"
-        mock-session {:apiUrl "url" :apiToken "token"}
-        mock-response-body {:methodResponses [["Email/set" {:notCreated ["email-id"]}]]}
-        mock-post2 (fn [_url _api-token _request_body _content_type]
-                     (res/success mock-response-body))]
-    (with-redefs [http/post2 mock-post2]
-      (let [result (fm/move-email-to-mailbox mock-session mock-email-id mock-mailbox-id)]
-        (t/is (res/failure? result))
-        (t/is (= (str "move-email-to-mailbox failed " error-message) (:error result)))))))
+        (t/is (= "move-email-to-mailbox failed post response failed with unknown error" (:error result)))))))
 
 (t/deftest move-email-to-mailbox-success-test
   (let [mock-email-id "email-id"
         mock-mailbox-id "mailbox-id"
         mock-session {:apiUrl "url" :apiToken "token"}
-        mock-response-body {:methodResponses [["Email/set"]]}
+        mock-created-id "1234"
+        mock-response-body {:methodResponses [["Email/set" {:created [mock-created-id]}]]}
         mock-post2 (fn [_url _api-token _request_body _content_type]
                      (res/success mock-response-body))]
     (with-redefs [http/post2 mock-post2]
       (let [result (fm/move-email-to-mailbox mock-session mock-email-id mock-mailbox-id)]
         (t/is (res/success? result))
-        (t/is (nil? (:value result)))))))
+        (t/is (= mock-created-id (:value result)))))))
 
 (t/deftest get-file-extension-fail-test
   (let [mock-mime-type "dodgy-mime-type"
@@ -380,7 +381,7 @@
         mock-blob {:blobId "blobId" :type "image/jpeg"}
         mock-blob-id 1234
         mock-post2 (fn [_url _api-token _content _content_type]
-                     (res/success {:status 200 :headers {"Content-Type" "application/json"} :body (json/encode {:blobId mock-blob-id})}))]
+                     (res/success {:blobId mock-blob-id}))]
     (with-redefs [http/post2 mock-post2]
       (let [result (fm/upload-blob mock-session mock-blob)]
         (t/is (res/success? result))
@@ -453,38 +454,39 @@
         (t/is (res/failure? result))
         (t/is (= (str "create-draft-email failed " error-message) (:error result)))))))
 
-(t/deftest create-draft-email-API-error-fail-test
+(t/deftest create-draft-email-API-fail-test
   (let [mock-session {:apiUrl   "url"
                       :apiToken "token"}
-        mock-post-response-body {:methodResponses [["error" ""]]}
+        mock-error-type "the type"
+        mock-error-arguments "the arguments"
+        mock-response-body {:methodResponses [["error" {:arguments mock-error-arguments :type mock-error-type}]]}
         mock-email "mock email"
         mock-post2 (fn [_url _api-token _content _content_type]
-                     (res/success mock-post-response-body))]
+                     (res/success mock-response-body))]
     (with-redefs [http/post2 mock-post2]
       (let [result (fm/create-draft-email mock-session mock-email)]
         (t/is (res/failure? result))
-        (t/is (= "create-draft-email failed API error: , arguments: " (:error result)))))))
+        (t/is (= "create-draft-email failed post response failed with API error: type the type, arguments: the arguments" (:error result)))))))
 
-(t/deftest create-draft-email-unexpected-error-fail-test
+(t/deftest create-draft-email-unknown-fail-test
   (let [mock-session {:apiUrl   "url"
                       :apiToken "token"}
-        mock-post-response-body "some dodgy response"
         mock-email "mock email"
         mock-post2 (fn [_url _api-token _content _content_type]
-                     (res/success mock-post-response-body))]
+                     (res/success "some dodgy response"))]
     (with-redefs [http/post2 mock-post2]
       (let [result (fm/create-draft-email mock-session mock-email)]
         (t/is (res/failure? result))
-        (t/is (= "create-draft-email failed Unknown error creating draft email" (:error result)))))))
+        (t/is (= "create-draft-email failed post response failed with unknown error" (:error result)))))))
 
 (t/deftest create-draft-email-success-test
   (let [mock-session {:apiUrl   "url"
                       :apiToken "token"}
         mock-created-email-id 666
-        mock-post-response-body {:methodResponses [["Email/set" {:created {:draft_message {:id mock-created-email-id}}}]]}
+        mock-response-body {:methodResponses [["Email/set" {:created {:draft_message {:id mock-created-email-id}}}]]}
         mock-email "mock email"
         mock-post2 (fn [_url _api-token _content _content_type]
-                     (res/success mock-post-response-body))]
+                     (res/success mock-response-body))]
     (with-redefs [http/post2 mock-post2]
       (let [result (fm/create-draft-email mock-session mock-email)]
         (t/is (res/success? result))
