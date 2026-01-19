@@ -3,7 +3,7 @@
     [clojure.string :as str]))
 
 (defn failure [& msgs]
-  (let [combined-message (str/join " " msgs)]
+  (let [combined-message (str/join " / " msgs)]
     {:status :error
      :error  combined-message}))
 
