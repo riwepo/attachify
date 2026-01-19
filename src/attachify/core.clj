@@ -1,10 +1,12 @@
 (ns attachify.core
   (:require [clojure.pprint :refer [pprint]]
-            [taoensso.timbre :as timbre]
+            [taoensso.telemere :as tel]
             [attachify.fastmail :as fm]
-            [attachify.config :refer [load-config]]))
+            [attachify.config :refer [load-config]]
+            [attachify.result :refer [failure failure?]]
+            [attachify.result-log :refer [log-and-success log-and-failure]]))
 
-(defn extract-resend-username [to-address]
+(defn extract-plus-address [to-address]
   (let [pattern #"^attachify\+(.+)@fastmail\.com$"
         matcher (re-matches pattern to-address)]
     (when matcher
@@ -17,40 +19,28 @@
 
 (defn process-email
   [config session sender-id mailbox-info email-id]
-  (timbre/debug (str "processing email " email-id))
+  (tel/log! {:level :debug, :data {:sender-id sender-id :mailbox-info mailbox-info :email-id email-id}} "processing email")
   (let [processing-mailbox-id (fm/get-mailbox-id-by-name mailbox-info "Processing")
         move-email-to-processing-result (fm/move-email-to-mailbox session email-id processing-mailbox-id)]
-    (if (:error move-email-to-processing-result)
-      (do
-        (println "Step 1: Error moving email to Processing folder:" (:error-message move-email-to-processing-result))
-        move-email-to-processing-result)
+    (if (failure? move-email-to-processing-result)
+      (log-and-failure "process-email failed Step 1" (:error move-email-to-processing-result))
       (let [fetch-email-result (fm/fetch-email session email-id)]
-        (if (:error fetch-email-result)
-          (do
-            (println "Step 2: Error fetching email:" (:error-message fetch-email-result))
-            fetch-email-result)
+        (if (failure? fetch-email-result)
+          (log-and-failure "process-email failed Step 2" (:error fetch-email-result))
           (let [email (:value fetch-email-result)
                 to-address (fm/get-to-address email)
-                resend-username (extract-resend-username to-address)]
+                resend-username (extract-plus-address to-address)]
             (if (nil? resend-username)
-              (do
-                (println "Error: resend-username is nil, cannot proceed")
-                {:error         true
-                 :error-message (str "resend-username not found in to-address " (str "'" to-address "'"))
-                 :value         nil})
+              (log-and-failure "process-email failed Step 3 / plus-addressing failed")
               (let [resend-address (build-resend-address config resend-username)
-                    blob-info (fm/get-blob-info email)
-                    download-blobs-result (fm/download-blobs session blob-info)]
-                (if (:error download-blobs-result)
-                  (do
-                    (println "Step 3: Error downloading blobs:" (:error-message download-blobs-result))
-                    download-blobs-result)
+                    blobs-info (fm/get-blobs-info email)
+                    download-blobs-result (fm/download-blobs session blobs-info)]
+                (if (failure? download-blobs-result)
+                  (log-and-failure "Step 3: Error downloading blobs" (:error download-blobs-result))
                   (let [blobs (:value download-blobs-result)
                         upload-attachments-result (fm/upload-attachments session blobs)]
-                    (if (:error upload-attachments-result)
-                      (do
-                        (println "Step 4: Error uploading attachments:" (:error-message upload-attachments-result))
-                        upload-attachments-result)
+                    (if (failure? upload-attachments-result)
+                      (log-and-failure "Step 4: Error uploading attachments" (:error upload-attachments-result))
                       (let [attachment-info (:value upload-attachments-result)
                             from-address (:from-address config)
                             draft-email-object (fm/build-draft-email
@@ -61,33 +51,22 @@
                                                  (fm/get-mailbox-id-by-role mailbox-info "drafts")
                                                  (:subject email))
                             create-draft-result (fm/create-draft-email session draft-email-object)]
-                        (if (:error create-draft-result)
-                          (do
-                            (println "Step 5: Failed to create draft:" (:error-message create-draft-result))
-                            create-draft-result)
+                        (if (failure create-draft-result)
+                          (log-and-failure "Step 5: Failed to create draft" (:error create-draft-result))
                           (let [draft-email-id (:value create-draft-result)
                                 submit-result (fm/submit-email session draft-email-id sender-id)]
-                            (if (:error submit-result)
-                              (do
-                                (println "Step 6: Error submitting draft email:" (:error-message submit-result))
-                                submit-result)
+                            (if (failure? submit-result)
+                              (log-and-failure "Step 6: Error submitting draft email" (:error submit-result))
                               (let [sent-mailbox-id (fm/get-mailbox-id-by-role mailbox-info "sent")
                                     move-email-to-sent-result (fm/move-email-to-mailbox session draft-email-id sent-mailbox-id)]
-                                (if (:error move-email-to-sent-result)
-                                  (do
-                                    (println "Step 7: Error moving email to Sent:" (:error-message move-email-to-sent-result))
-                                    move-email-to-sent-result)
+                                (if (failure move-email-to-sent-result)
+                                  (log-and-failure "Step 7: Error moving email to Sent" (:error move-email-to-processing-result))
                                   (let [processed-mailbox-id (fm/get-mailbox-id-by-name mailbox-info "Processed")
                                         move-email-to-processed-result (fm/move-email-to-mailbox session email-id processed-mailbox-id)]
-                                    (if (:error move-email-to-processed-result)
-                                      (do
-                                        (println "Step 8: Error moving email to Processed folder:" (:error-message move-email-to-processed-result))
-                                        move-email-to-processed-result)
+                                    (if (failure? move-email-to-processed-result)
+                                      (log-and-failure "Step 8:Error moving email to Processed folder" (:error move-email-to-processed-result))
                                       ;; All steps succeeded
-                                      {:success       true
-                                       :error         false
-                                       :error-message nil
-                                       :value         true})))))))))))))))))))
+                                      (log-and-success nil "email successfully processed"))))))))))))))))))))
 
 
 
@@ -97,43 +76,33 @@
   (let [config (load-config)
         fetch-session-result (fm/fetch-session config)]
     (if (:error fetch-session-result)
-      (do
-        (timbre/error "Error fetching session:" (:error-message fetch-session-result))
-        fetch-session-result)
+      (log-and-failure "Error fetching session" (:error fetch-session-result))
       (let [session (:value fetch-session-result)
             identity-info-result (fm/fetch-identity-info session)]
-        (if (:error identity-info-result)
-          (do
-            (timbre/error "Error fetching identity info:" (:error-message identity-info-result))
-            identity-info-result)
+        (if (failure identity-info-result)
+          (log-and-failure "Error fetching identity info" (:error identity-info-result))
           (let [identity-info (:value identity-info-result)
                 sender-id (fm/get-identity-id identity-info)
                 mailbox-info-result (fm/fetch-mailbox-info session)]
-            (if (:error mailbox-info-result)
-              (do
-                (timbre/error "Error fetching mailbox info:" (:error-message mailbox-info-result))
-                mailbox-info-result)
+            (if (failure? mailbox-info-result)
+              (log-and-failure "Error fetching mailbox info" (:error mailbox-info-result))
               (let [mailbox-info (:value mailbox-info-result)
                     inbox-mailbox-id (fm/get-mailbox-id-by-role mailbox-info "inbox")
                     processing-mailbox-id (fm/get-mailbox-id-by-name mailbox-info "Processing")
                     processing-email-ids-result (fm/fetch-email-ids session processing-mailbox-id)]
-                (if (:error processing-email-ids-result)
-                  (do
-                    (timbre/error "Error fetching email IDs from Processing mailbox:" (:error-message processing-email-ids-result))
-                    processing-email-ids-result)
+                (if (failure? processing-email-ids-result)
+                  (log-and-failure "Error fetching email IDs from Processing mailbox:" (:error processing-email-ids-result))
                   (let [processing-email-ids (:value processing-email-ids-result)
                         inbox-email-ids-result (fm/fetch-email-ids session inbox-mailbox-id)]
-                    (if (:error inbox-email-ids-result)
-                      (do
-                        (timbre/error "Error fetching email IDs from Inbox mailbox:" (:error-message inbox-email-ids-result))
-                        inbox-email-ids-result)
+                    (if (failure? inbox-email-ids-result)
+                      (log-and-failure "Error fetching email IDs from Inbox mailbox" (:error inbox-email-ids-result))
                       (let [inbox-email-ids (:value inbox-email-ids-result)
                             all-email-ids (concat processing-email-ids inbox-email-ids)
                             success-count (atom 0)]
                         (doseq [email-id all-email-ids]
-                          (let [result (process-email config session sender-id mailbox-info email-id)]
-                            (if (:error result)
-                              (timbre/error "Error processing email id" (str "'" email-id "'") ":" (:error-message result))
+                          (let [process-email-result (process-email config session sender-id mailbox-info email-id)]
+                            (if (failure? process-email-result)
+                              (log-and-failure "Error processing email id " (str "'" email-id "'") (:error process-email-result))
                               (swap! success-count inc))))
                         {:value @success-count}))))))))))))
 
@@ -158,7 +127,7 @@
   (get-in email [:to 0 :email])
   (def test-email {:to [{:email "attachify+riwepo.work@fastmail.com"}]})
   (def to-address (fm/get-to-address test-email))
-  (def resend-user (extract-resend-username to-address))
+  (def resend-user (extract-plus-address to-address))
   (print resend-user)
   (def resend-address (build-resend-address config resend-user))
   (print resend-address)
