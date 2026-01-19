@@ -6,7 +6,7 @@
             [attachify.http :as http]
             [attachify.fastmail :as fm]))
 
-(t/deftest fetch-session-get2-fail-test
+(t/deftest fetch-session-get2-fail
   (let [error-message "get2 failed"
         config (cfg/load-config)
         mock-get2 (fn [_url _api-token]
@@ -16,7 +16,7 @@
         (t/is (res/failure? result))
         (t/is (= (str "fetch-session failed " error-message) (:error result)))))))
 
-(t/deftest fetch-session-format-fail-test
+(t/deftest fetch-session-format-fail
   (let [error-message "Invalid session format"
         config (cfg/load-config)
         mock-get2 (fn [_url _api-token]
@@ -26,7 +26,7 @@
         (t/is (res/failure? result))
         (t/is (= (str "fetch-session failed " error-message) (:error result)))))))
 
-(t/deftest fetch-session-success-test
+(t/deftest fetch-session-success
   (let [
         config (cfg/load-config)
         mock-session {:apiToken (:email-api-token config)}
@@ -37,7 +37,7 @@
         (t/is (res/success? result))
         (t/is (= mock-session (:value result)))))))
 
-(t/deftest fetch-identity-info-post2-fail-test
+(t/deftest fetch-identity-info-post2-fail
   (let [error-message "post2 failed"
         mock-session {:apiUrl "url" :apiToken "token"}
         mock-post2 (fn [_url _api-token _request_body _content_type]
@@ -47,7 +47,7 @@
         (t/is (res/failure? result))
         (t/is (= (str "fetch-identity-info failed " error-message) (:error result)))))))
 
-(t/deftest fetch-identity-info-API-fail-test
+(t/deftest fetch-identity-info-API-fail
   (let [mock-session {:apiUrl "url" :apiToken "token"}
         mock-error-type "the type"
         mock-error-arguments "the arguments"
@@ -59,7 +59,7 @@
         (t/is (res/failure? result))
         (t/is (= "fetch-identity-info failed post response failed with API error: type the type, arguments: the arguments" (:error result)))))))
 
-(t/deftest fetch-identity-info-unknown-fail-test
+(t/deftest fetch-identity-info-unknown-fail
   (let [mock-session {:apiUrl "url" :apiToken "token"}
         mock-post2 (fn [_url _api-token _request_body _content_type]
                      (res/success "some dodgy response"))]
@@ -68,7 +68,7 @@
         (t/is (res/failure? result))
         (t/is (= "fetch-identity-info failed post response failed with unknown error" (:error result)))))))
 
-(t/deftest fetch-identity-info-success-test
+(t/deftest fetch-identity-info-success
   (let [mock-session {:apiUrl "url" :apiToken "token"}
         mock-id 123
         mock-response-body {:methodResponses [["Identity/get" {:list [{:id mock-id}]}]]}
@@ -79,7 +79,7 @@
         (t/is (res/success? result))
         (t/is (= mock-id (:value result)))))))
 
-(t/deftest fetch-mailbox-info-post2-fail-test
+(t/deftest fetch-mailbox-info-post2-fail
   (let [error-message "post2 fail"
         mock-session {:apiUrl "url" :apiToken "token"}
         mock-post2 (fn [_url _api-token _request_body _content_type]
@@ -89,7 +89,7 @@
         (t/is (res/failure? result))
         (t/is (= (str "fetch-mailbox-info failed " error-message) (:error result)))))))
 
-(t/deftest fetch-mailbox-info-API-fail-test
+(t/deftest fetch-mailbox-info-API-fail
   (let [mock-session {:apiUrl "url" :apiToken "token"}
         mock-error-type "the type"
         mock-error-arguments "the arguments"
@@ -101,7 +101,7 @@
         (t/is (res/failure? result))
         (t/is (= "fetch-mailbox-info failed post response failed with API error: type the type, arguments: the arguments" (:error result)))))))
 
-(t/deftest fetch-mailbox-info-unknown-fail-test
+(t/deftest fetch-mailbox-info-unknown-fail
   (let [mock-session {:apiUrl "url" :apiToken "token"}
         mock-post2 (fn [_url _api-token _request_body _content-type]
                      (res/success "some dodgy response"))]
@@ -111,7 +111,7 @@
         (t/is (= "fetch-mailbox-info failed post response failed with unknown error" (:error result)))))))
 
 
-(t/deftest fetch-mailbox-info-success-test
+(t/deftest fetch-mailbox-info-success
   (let [mock-session {:apiUrl "url" :apiToken "token"}
         mock-mailbox-info [{:role "inbox" :name "Inbox" :id "P-Y"}]
         mock-response-body {:methodResponses [["Mailbox/get" {:list mock-mailbox-info}]]}
@@ -122,7 +122,7 @@
         (t/is (res/success? result))
         (t/is (= mock-mailbox-info (:value result)))))))
 
-(t/deftest fetch-email-ids-post2-fail-test
+(t/deftest fetch-email-ids-post2-fail
   (let [error-message "post2 fail"
         mock-mailbox-id "P-Y"
         mock-session {:apiUrl "url" :apiToken "token"}
@@ -133,7 +133,7 @@
         (t/is (res/failure? result))
         (t/is (= (str "fetch-email-ids failed " error-message) (:error result)))))))
 
-(t/deftest fetch-email-ids-API-fail-test
+(t/deftest fetch-email-ids-API-fail
   (let [mock-mailbox-id "P-Y"
         mock-session {:apiUrl "url" :apiToken "token"}
         mock-error-type "the type"
@@ -146,7 +146,7 @@
         (t/is (res/failure? result))
         (t/is (= "fetch-email-ids failed post response failed with API error: type the type, arguments: the arguments" (:error result)))))))
 
-(t/deftest fetch-email-ids-unknown-fail-test
+(t/deftest fetch-email-ids-unknown-fail
   (let [mock-mailbox-id "P-Y"
         mock-session {:apiUrl "url" :apiToken "token"}
         mock-post2 (fn [_url _api-token _request_body _content_type]
@@ -157,7 +157,7 @@
         (t/is (= "fetch-email-ids failed post response failed with unknown error" (:error result)))))))
 
 
-(t/deftest fetch-email-ids-success-test
+(t/deftest fetch-email-ids-success
   (let [mock-session {:apiUrl "url" :apiToken "token"}
         mock-mailbox-id "P-F"
         mock-email-ids ["1" "2" "3"]
@@ -169,7 +169,7 @@
         (t/is (res/success? result))
         (t/is (= mock-email-ids (:value result)))))))
 
-(t/deftest fetch-email-post2-fail-test
+(t/deftest fetch-email-post2-fail
   (let [error-message "post2 fail"
         mock-email-id "email-id"
         mock-session {:apiUrl "url" :apiToken "token"}
@@ -180,7 +180,7 @@
         (t/is (res/failure? result))
         (t/is (= (str "fetch-email failed " error-message) (:error result)))))))
 
-(t/deftest fetch-email-API-fail-test
+(t/deftest fetch-email-API-fail
   (let [mock-email-id "email-id"
         mock-session {:apiUrl "url" :apiToken "token"}
         mock-error-type "the type"
@@ -193,7 +193,7 @@
         (t/is (res/failure? result))
         (t/is (=  "fetch-email failed post response failed with API error: type the type, arguments: the arguments" (:error result)))))))
 
-(t/deftest fetch-email-unknown-fail-test
+(t/deftest fetch-email-unknown-fail
   (let [mock-email-id "email-id"
         mock-session {:apiUrl "url" :apiToken "token"}
         mock-post2 (fn [_url _api-token _request_body _content_type]
@@ -203,7 +203,7 @@
         (t/is (res/failure? result))
         (t/is (=  "fetch-email failed post response failed with unknown error" (:error result)))))))
 
-(t/deftest fetch-email-success-test
+(t/deftest fetch-email-success
   (let [mock-session {:apiUrl "url" :apiToken "token"}
         mock-email-id "email-id"
         mock-email {:to "fred" :from "nerk"}
@@ -215,7 +215,7 @@
         (t/is (res/success? result))
         (t/is (= mock-email (:value result)))))))
 
-(t/deftest move-email-to-mailbox-post2-fail-test
+(t/deftest move-email-to-mailbox-post2-fail
   (let [error-message "post2 fail"
         mock-email-id "email-id"
         mock-mailbox-id "mailbox-id"
@@ -227,7 +227,7 @@
         (t/is (res/failure? result))
         (t/is (= (str "move-email-to-mailbox failed " error-message) (:error result)))))))
 
-(t/deftest move-email-to-mailbox-API-fail-test
+(t/deftest move-email-to-mailbox-API-fail
   (let [mock-email-id "email-id"
         mock-mailbox-id "mailbox-id"
         mock-session {:apiUrl "url" :apiToken "token"}
@@ -241,7 +241,7 @@
         (t/is (res/failure? result))
         (t/is (= "move-email-to-mailbox failed post response failed with API error: type the type, arguments: the arguments" (:error result)))))))
 
-(t/deftest move-email-to-mailbox-unknown-fail-test
+(t/deftest move-email-to-mailbox-unknown-fail
   (let [mock-email-id "email-id"
         mock-mailbox-id "mailbox-id"
         mock-session {:apiUrl "url" :apiToken "token"}
@@ -252,7 +252,7 @@
         (t/is (res/failure? result))
         (t/is (= "move-email-to-mailbox failed post response failed with unknown error" (:error result)))))))
 
-(t/deftest move-email-to-mailbox-success-test
+(t/deftest move-email-to-mailbox-success
   (let [mock-email-id "email-id"
         mock-mailbox-id "mailbox-id"
         mock-session {:apiUrl "url" :apiToken "token"}
@@ -265,19 +265,19 @@
         (t/is (res/success? result))
         (t/is (= mock-created-id (:value result)))))))
 
-(t/deftest get-file-extension-fail-test
+(t/deftest get-file-extension-fail
   (let [mock-mime-type "dodgy-mime-type"
         result (fm/get-file-extension mock-mime-type)]
     (t/is (res/failure? result))
     (t/is (= "get-file-extension failed unexpected mime type dodgy-mime-type" (:error result)))))
 
-(t/deftest get-file-extension-success-test
+(t/deftest get-file-extension-success
   (let [mock-mime-type "image/jpeg"
         result (fm/get-file-extension mock-mime-type)]
     (t/is (res/success? result))
     (t/is (= ".jpg" (:value result)))))
 
-(t/deftest create-download-url-fail-test
+(t/deftest create-download-url-fail
   (let [mock-session {:apiUrl "url" :apiToken "token"}
         mock-blob-info {:type "dodgy-mime-type"}
         mock-filename "filename"
@@ -285,7 +285,7 @@
     (t/is (res/failure? result))
     (t/is (= "create-download-url failed get-file-extension failed unexpected mime type dodgy-mime-type" (:error result)))))
 
-(t/deftest create-download-url-success-test
+(t/deftest create-download-url-success
   (let [mock-session {:apiUrl          "url"
                       :apiToken        "token"
                       :primaryAccounts {:urn:ietf:params:jmap:mail "account-name"}
@@ -296,7 +296,7 @@
     (t/is (res/success? result))
     (t/is (= "account-name/blobId/filename.jpg/image%2Fjpeg" (:value result)))))
 
-(t/deftest download-blob-create-download-url-fail-test
+(t/deftest download-blob-create-download-url-fail
   (let [error-message "create-download-url failed"
         mock-session {}
         mock-blob-info {}
@@ -308,7 +308,7 @@
         (t/is (res/failure? result))
         (t/is (= (str "download-blob failed " error-message) (:error result)))))))
 
-(t/deftest download-blob-get2-fail-test
+(t/deftest download-blob-get2-fail
   (let [error-message "get2 failed"
         mock-session {:apiUrl          "url"
                       :apiToken        "token"
@@ -323,7 +323,7 @@
         (t/is (res/failure? result))
         (t/is (= (str "download-blob failed " error-message) (:error result)))))))
 
-(t/deftest download-blob-success-test
+(t/deftest download-blob-success
   (let [mock-session {}
         mock-blob-info {}
         mock-filename "filename"
@@ -337,7 +337,7 @@
         (t/is (res/success? result))
         (t/is (= mock-blob-content (:value result)))))))
 
-(t/deftest download-blobs-download-blob-fail-test
+(t/deftest download-blobs-download-blob-fail
   (let [mock-error-message "download-blob failed"
         mock-session {}
         mock-blob-infos [{:role :mockRole}]
@@ -348,7 +348,7 @@
         (t/is (res/failure? result))
         (t/is (= (str "download-blobs failed " mock-error-message) (:error result)))))))
 
-(t/deftest download-blobs-success-test
+(t/deftest download-blobs-success
   (let [mock-session {}
         mock-blob-content "mock-blob-content"
         mock-blob-infos [{:role :mockRole}]
@@ -359,7 +359,7 @@
         (t/is (res/success result))
         (t/is (= [{:role :mockRole :value mock-blob-content}] (:value result)))))))
 
-(t/deftest upload-blob-post2-fail-test
+(t/deftest upload-blob-post2-fail
   (let [error-message "post2 failed"
         mock-session {:apiUrl          "url"
                       :apiToken        "token"
@@ -373,7 +373,7 @@
         (t/is (res/failure? result))
         (t/is (= (str "upload-blob failed " error-message) (:error result)))))))
 
-(t/deftest upload-blob-success-test
+(t/deftest upload-blob-success
   (let [mock-session {:apiUrl          "url"
                       :apiToken        "token"
                       :primaryAccounts {:urn:ietf:params:jmap:mail "account-name"}
@@ -387,7 +387,7 @@
         (t/is (res/success? result))
         (t/is (= mock-blob-id (:value result)))))))
 
-(t/deftest get-blobs-info-success-test
+(t/deftest get-blobs-info-success
   (let [mock-email {:textBody    [{:blobId 1 :type "text-type"}]
                     :htmlBody    [{:blobId 2 :type "html-type"}]
                     :attachments [{:blobId 3 :type "attachment"}]}
@@ -403,7 +403,7 @@
                       :role   :attachment
                       :type   "attachment"}]))))
 
-(t/deftest build-draft-email-success-test
+(t/deftest build-draft-email-success
   (let [mock-blobs [{:role :textBody :value "some text"}
                     {:role :htmlBody :value "some html"}
                     {:role :attachment :value "attachment 1" :blobId 1 :name "name 1" :type ".jpg"}
@@ -440,7 +440,7 @@
                              :name        "name 2"
                              :type        ".png"}]} result))))
 
-(t/deftest create-draft-email-post2-fail-test
+(t/deftest create-draft-email-post2-fail
   (let [error-message "post2 failed"
         mock-session {:apiUrl          "url"
                       :apiToken        "token"
@@ -454,7 +454,7 @@
         (t/is (res/failure? result))
         (t/is (= (str "create-draft-email failed " error-message) (:error result)))))))
 
-(t/deftest create-draft-email-API-fail-test
+(t/deftest create-draft-email-API-fail
   (let [mock-session {:apiUrl   "url"
                       :apiToken "token"}
         mock-error-type "the type"
@@ -468,7 +468,7 @@
         (t/is (res/failure? result))
         (t/is (= "create-draft-email failed post response failed with API error: type the type, arguments: the arguments" (:error result)))))))
 
-(t/deftest create-draft-email-unknown-fail-test
+(t/deftest create-draft-email-unknown-fail
   (let [mock-session {:apiUrl   "url"
                       :apiToken "token"}
         mock-email "mock email"
@@ -479,7 +479,7 @@
         (t/is (res/failure? result))
         (t/is (= "create-draft-email failed post response failed with unknown error" (:error result)))))))
 
-(t/deftest create-draft-email-success-test
+(t/deftest create-draft-email-success
   (let [mock-session {:apiUrl   "url"
                       :apiToken "token"}
         mock-created-email-id 666
@@ -492,7 +492,7 @@
         (t/is (res/success? result))
         (t/is (= mock-created-email-id (:value result)))))))
 
-(t/deftest upload-attachments-blob-not-attachment-fail-test
+(t/deftest upload-attachments-blob-not-attachment-fail
   (let [mock-session {:apiUrl   "url"
                       :apiToken "token"}
         mock-blobs [1 2 3]
@@ -503,7 +503,7 @@
         (t/is (res/failure? result))
         (t/is (= (str "upload-attachments failed Blob role is not :attachment") (:error result)))))))
 
-(t/deftest upload-attachments-upload-blob-fail-test
+(t/deftest upload-attachments-upload-blob-fail
   (let [mock-error-message "upload-blob failed"
         mock-session {:apiUrl   "url"
                       :apiToken "token"}
@@ -515,7 +515,7 @@
         (t/is (res/failure? result))
         (t/is (= (str "upload-attachments failed " mock-error-message) (:error result)))))))
 
-(t/deftest upload-attachments-success-test
+(t/deftest upload-attachments-success
   (let [mock-session {:apiUrl   "url"
                       :apiToken "token"}
         mock-blobs [{:role :attachment :blobId 1 :type "image/jpeg"}
@@ -534,7 +534,7 @@
                    :role   :attachment
                    :type   "image/png"}] (:value result)))))))
 
-(t/deftest submit-email-post2-fail-test
+(t/deftest submit-email-post2-fail
   (let [mock-error-message "post2 failed"
         mock-session {:apiUrl          "url"
                       :apiToken        "token"}
@@ -547,7 +547,7 @@
         (t/is (res/failure? result))
         (t/is (= (str "submit-email failed " mock-error-message) (:error result)))))))
 
-(t/deftest submit-email-API-error-fail-test
+(t/deftest submit-email-API-error-fail
   (let [mock-session {:apiUrl          "url"
                       :apiToken        "token"}
         mock-submitted-email-id 1234
@@ -562,7 +562,7 @@
         (t/is (res/failure? result))
         (t/is (= "submit-email failed post response failed with API error: type the type, arguments: the arguments" (:error result)))))))
 
-(t/deftest submit-email-unexpected-error-fail-test
+(t/deftest submit-email-unexpected-error-fail
   (let [mock-session {:apiUrl          "url"
                       :apiToken        "token"}
         mock-submitted-email-id 1234
@@ -575,7 +575,7 @@
         (t/is (res/failure? result))
         (t/is (= "submit-email failed post response failed with unknown error" (:error result)))))))
 
-(t/deftest submit-email-success-test
+(t/deftest submit-email-success
   (let [mock-session {:apiUrl   "url"
                       :apiToken "token"}
         mock-submitted-email-id 666
