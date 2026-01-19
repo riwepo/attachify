@@ -397,6 +397,11 @@
           ;; Blob role is not :attachment, return error immediately
           (log-and-failure "upload-attachments failed" "Blob role is not :attachment"))))))
 
+(defn extract-submitted-id [method-responses]
+  (let [email-set-response (first (filter #(= "EmailSubmission/set" (first %)) method-responses))
+        created (get-in email-set-response [1 :created])
+        result (:id created)]
+    result))
 
 (defn submit-email
   [session email-id identity-id]
@@ -416,22 +421,10 @@
                       encoded-request-body
                       "application/json; charset=utf-8")]
     (if (success? post-result)
-      (let [response-body (:value post-result)
-            method-responses (:methodResponses response-body)
-            error-response (first (filter #(= "error" (first %)) method-responses))
-            created-response (get method-responses [1 :created])]
-        (cond
-
-          error-response
-          (let [{:keys [arguments type]} (second error-response)
-                error-msg (str "API error: type: " type ", arguments: " arguments)]
-            (log-and-failure "submit-email failed" error-msg))
-
-          created-response
-          (log-and-success (:id created-response) "submit-email succeeded")
-
-          :else
-          (log-and-failure "submit-email failed with unexpected error")))
+      (let [process-response-result (process-response extract-submitted-id (:value post-result))]
+        (if (success? process-response-result)
+          (log-and-success (:value process-response-result) "submit-email succeeded")
+          (log-and-failure "submit-email failed" (:error process-response-result))))
       (log-and-failure "submit-email failed" (:error post-result)))))
 
 
