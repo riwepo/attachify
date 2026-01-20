@@ -97,14 +97,16 @@
                     (if (failure? inbox-email-ids-result)
                       (log-and-failure "process-emails failed Step 5" (:error inbox-email-ids-result))
                       (let [inbox-email-ids (:value inbox-email-ids-result)
-                            all-email-ids (concat processing-email-ids inbox-email-ids)
-                            success-count (atom 0)]
-                        (doseq [email-id all-email-ids]
-                          (let [process-email-result (process-email config session sender-id mailbox-info email-id)]
-                            (if (failure? process-email-result)
-                              (log-and-failure "process-emails failed Step 6" (str "'" email-id "'") (:error process-email-result))
-                              (swap! success-count inc))))
-                        {:value @success-count}))))))))))))
+                            all-email-ids (concat processing-email-ids inbox-email-ids)]
+                        (loop [ids all-email-ids
+                               success-count 0]
+                          (if (empty? ids)
+                            {:value success-count}
+                            (let [email-id (first ids)
+                                  process-email-result (process-email config session sender-id mailbox-info email-id)]
+                              (if (failure? process-email-result)
+                                (log-and-failure "process-emails failed Step 6" (str "'" email-id "'") (:error process-email-result))
+                                (recur (rest ids) (inc success-count))))))))))))))))))
 
 
 
