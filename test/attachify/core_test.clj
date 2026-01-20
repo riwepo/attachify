@@ -340,6 +340,82 @@
         (t/is (res/failure result))
         (t/is (= (str "process-emails failed Step 3 / " mock-error-message) (:error result)))))))
 
+(t/deftest process-emails-fetch-processing-email-ids-fail
+  (let [mock-error-message "fetch-email-ids failed / mock error"
+        mock-session {}
+        mock-fetch-session (fn [_config]
+                             (res/success mock-session))
+        mock-identity-info {}
+        mock_fetch-identity-info (fn [_session]
+                                   (res/success mock-identity-info))
+        mock-mailbox-info {}
+        mock_fetch-mailbox-info (fn [_session]
+                                  (res/success mock-mailbox-info))
+        mock_fetch-email-ids (fn [_session _mailbox-id]
+                               (res/failure mock-error-message))]
+    (with-redefs [fm/fetch-session mock-fetch-session
+                  fm/fetch-identity-info mock_fetch-identity-info
+                  fm/fetch-mailbox-info mock_fetch-mailbox-info
+                  fm/fetch-email-ids mock_fetch-email-ids]
+      (let [result (c/process-emails)]
+        (t/is (res/failure result))
+        (t/is (= (str "process-emails failed Step 4 / " mock-error-message) (:error result)))))))
+
+(t/deftest process-emails-fetch-inbox-email-ids-fail
+  (let [mock-error-message "fetch-email-ids failed / mock error"
+        mock-session {}
+        mock-fetch-session (fn [_config]
+                             (res/success mock-session))
+        mock-identity-info {}
+        mock_fetch-identity-info (fn [_session]
+                                   (res/success mock-identity-info))
+        mock-mailbox-info {}
+        mock_fetch-mailbox-info (fn [_session]
+                                  (res/success mock-mailbox-info))
+        mock-email-ids [1 2 3 4]
+        call-count (atom 0)
+        success-result (res/success mock-email-ids)
+        failure-result (res/failure mock-error-message)
+        mock_fetch-email-ids
+        (fn [_session _mailbox-id]
+          (swap! call-count inc)
+          (if (= @call-count 2)
+            failure-result
+            success-result))]
+    (with-redefs [fm/fetch-session mock-fetch-session
+                  fm/fetch-identity-info mock_fetch-identity-info
+                  fm/fetch-mailbox-info mock_fetch-mailbox-info
+                  fm/fetch-email-ids mock_fetch-email-ids]
+      (let [result (c/process-emails)]
+        (t/is (res/failure result))
+        (t/is (= (str "process-emails failed Step 5 / " mock-error-message) (:error result)))))))
+
+(t/deftest process-emails-process-email-fail
+  (let [mock-error-message "process-email failed / mock error"
+        mock-session {}
+        mock-fetch-session (fn [_config]
+                             (res/success mock-session))
+        mock-identity-info {}
+        mock_fetch-identity-info (fn [_session]
+                                   (res/success mock-identity-info))
+        mock-mailbox-info {}
+        mock_fetch-mailbox-info (fn [_session]
+                                  (res/success mock-mailbox-info))
+        mock-email-ids [1 2 3 4]
+        mock_fetch-email-ids
+        (fn [_session _mailbox-id]
+          (res/success mock-email-ids))
+        mock-process-email (fn [_config _session _sender_id _mailbox-info _email-id]
+                             (res/failure mock-error-message))]
+    (with-redefs [fm/fetch-session mock-fetch-session
+                  fm/fetch-identity-info mock_fetch-identity-info
+                  fm/fetch-mailbox-info mock_fetch-mailbox-info
+                  fm/fetch-email-ids mock_fetch-email-ids
+                  c/process-email mock-process-email]
+      (let [result (c/process-emails)]
+        (t/is (res/failure result))
+        (t/is (= (str "process-emails failed Step 6 / '1' / " mock-error-message) (:error result)))))))
+
 
 
 
