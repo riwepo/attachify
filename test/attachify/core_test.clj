@@ -301,6 +301,47 @@
         (t/is (res/success result))))))
 
 
+(t/deftest process-emails-fetch-session-fail
+  (let [mock-error-message "fetch-session failed / mock error"
+        mock-fetch-session (fn [_config]
+                             (res/failure mock-error-message))]
+    (with-redefs [fm/fetch-session mock-fetch-session]
+      (let [result (c/process-emails)]
+        (t/is (res/failure result))
+        (t/is (= (str "process-emails failed Step 1 / " mock-error-message) (:error result)))))))
+
+(t/deftest process-emails-fetch-identity-info-fail
+    (let [mock-error-message "fetch-identity-info failed / mock error"
+          mock-session {}
+          mock-fetch-session (fn [_config]
+                               (res/success mock-session))
+          mock_fetch-identity-info (fn [_session]
+                                     (res/failure mock-error-message))]
+      (with-redefs [fm/fetch-session mock-fetch-session
+                    fm/fetch-identity-info mock_fetch-identity-info]
+        (let [result (c/process-emails)]
+          (t/is (res/failure result))
+          (t/is (= (str "process-emails failed Step 2 / " mock-error-message) (:error result)))))))
+
+(t/deftest process-emails-fetch-mailbox-info-fail
+  (let [mock-error-message "fetch-mailbox-info failed / mock error"
+        mock-session {}
+        mock-fetch-session (fn [_config]
+                             (res/success mock-session))
+        mock-identity-info {}
+        mock_fetch-identity-info (fn [_session]
+                                   (res/success mock-identity-info))
+        mock_fetch-mailbox-info (fn [_session]
+                                  (res/failure mock-error-message))]
+    (with-redefs [fm/fetch-session mock-fetch-session
+                  fm/fetch-identity-info mock_fetch-identity-info
+                  fm/fetch-mailbox-info mock_fetch-mailbox-info]
+      (let [result (c/process-emails)]
+        (t/is (res/failure result))
+        (t/is (= (str "process-emails failed Step 3 / " mock-error-message) (:error result)))))))
+
+
+
 
 
 

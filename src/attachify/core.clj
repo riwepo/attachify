@@ -75,34 +75,34 @@
   []
   (let [config (load-config)
         fetch-session-result (fm/fetch-session config)]
-    (if (:error fetch-session-result)
-      (log-and-failure "Error fetching session" (:error fetch-session-result))
+    (if (failure? fetch-session-result)
+      (log-and-failure "process-emails failed Step 1" (:error fetch-session-result))
       (let [session (:value fetch-session-result)
             identity-info-result (fm/fetch-identity-info session)]
-        (if (failure identity-info-result)
-          (log-and-failure "Error fetching identity info" (:error identity-info-result))
+        (if (failure? identity-info-result)
+          (log-and-failure "process-emails failed Step 2" (:error identity-info-result))
           (let [identity-info (:value identity-info-result)
                 sender-id (fm/get-identity-id identity-info)
                 mailbox-info-result (fm/fetch-mailbox-info session)]
             (if (failure? mailbox-info-result)
-              (log-and-failure "Error fetching mailbox info" (:error mailbox-info-result))
+              (log-and-failure "process-emails failed Step 3" (:error mailbox-info-result))
               (let [mailbox-info (:value mailbox-info-result)
                     inbox-mailbox-id (fm/get-mailbox-id-by-role mailbox-info "inbox")
                     processing-mailbox-id (fm/get-mailbox-id-by-name mailbox-info "Processing")
                     processing-email-ids-result (fm/fetch-email-ids session processing-mailbox-id)]
                 (if (failure? processing-email-ids-result)
-                  (log-and-failure "Error fetching email IDs from Processing mailbox:" (:error processing-email-ids-result))
+                  (log-and-failure "process-emails failed Step 4" (:error processing-email-ids-result))
                   (let [processing-email-ids (:value processing-email-ids-result)
                         inbox-email-ids-result (fm/fetch-email-ids session inbox-mailbox-id)]
                     (if (failure? inbox-email-ids-result)
-                      (log-and-failure "Error fetching email IDs from Inbox mailbox" (:error inbox-email-ids-result))
+                      (log-and-failure "process-emails failed Step 5" (:error inbox-email-ids-result))
                       (let [inbox-email-ids (:value inbox-email-ids-result)
                             all-email-ids (concat processing-email-ids inbox-email-ids)
                             success-count (atom 0)]
                         (doseq [email-id all-email-ids]
                           (let [process-email-result (process-email config session sender-id mailbox-info email-id)]
                             (if (failure? process-email-result)
-                              (log-and-failure "Error processing email id " (str "'" email-id "'") (:error process-email-result))
+                              (log-and-failure "process-emails failed Step 6" (str "'" email-id "'") (:error process-email-result))
                               (swap! success-count inc))))
                         {:value @success-count}))))))))))))
 
