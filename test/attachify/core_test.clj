@@ -416,6 +416,32 @@
         (t/is (res/failure result))
         (t/is (= (str "process-emails failed Step 6 / '1' / " mock-error-message) (:error result)))))))
 
+;; failing at step 4 for some reason?
+(t/deftest process-emails-success
+  (let [mock-session {}
+        mock-fetch-session (fn [_config]
+                             (res/success mock-session))
+        mock-identity-info {}
+        mock_fetch-identity-info (fn [_session]
+                                   (res/success mock-identity-info))
+        mock-mailbox-info {}
+        mock_fetch-mailbox-info (fn [_session]
+                                  (res/success mock-mailbox-info))
+        mock-email-ids [1 2 3 4]
+        mock_fetch-email-ids (res/success mock-email-ids)
+        mock-process-email (res/success nil)]
+    (with-redefs [fm/fetch-session mock-fetch-session
+                  fm/fetch-identity-info mock_fetch-identity-info
+                  fm/fetch-mailbox-info mock_fetch-mailbox-info
+                  fm/fetch-email-ids mock_fetch-email-ids
+                  c/process-email mock-process-email]
+      (let [result (c/process-emails)]
+        (t/is (res/success result))))))
+
+
+
+
+
 
 
 
