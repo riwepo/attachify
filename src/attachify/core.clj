@@ -59,12 +59,12 @@
                               (log-and-failure "process-email failed Step 7" (:error submit-result))
                               (let [sent-mailbox-id (fm/get-mailbox-id-by-role mailbox-info "sent")
                                     move-email-to-sent-result (fm/move-email-to-mailbox session draft-email-id sent-mailbox-id)]
-                                (if (failure move-email-to-sent-result)
-                                  (log-and-failure "Step 7: Error moving email to Sent" (:error move-email-to-processing-result))
+                                (if (failure? move-email-to-sent-result)
+                                  (log-and-failure "process-email failed Step 8" (:error move-email-to-sent-result))
                                   (let [processed-mailbox-id (fm/get-mailbox-id-by-name mailbox-info "Processed")
                                         move-email-to-processed-result (fm/move-email-to-mailbox session email-id processed-mailbox-id)]
                                     (if (failure? move-email-to-processed-result)
-                                      (log-and-failure "Step 8:Error moving email to Processed folder" (:error move-email-to-processed-result))
+                                      (log-and-failure "process-email failed Step 9" (:error move-email-to-processed-result))
                                       ;; All steps succeeded
                                       (log-and-success nil "email successfully processed"))))))))))))))))))))
 

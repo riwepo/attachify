@@ -187,6 +187,123 @@
         (t/is (res/failure result))
         (t/is (= (str "process-email failed Step 7 / " mock-error-message) (:error result)))))))
 
+(t/deftest process-email-move-to-sent-fail
+  (let [config (cfg/load-config)
+        mock-session {}
+        mock-sender-id "sender-id"
+        mock-mailbox-info {}
+        mock-email-id 1234
+        mock-email {:to [{:email "attachify+riwepo@fastmail.com"}]}
+        mock-error-message "move-email-to-mailbox failed / mock error"
+        mock-blobs {}
+        mock-submitted-email-id 5678
+        call-count (atom 0)
+        success-result (res/success mock-email)
+        failure-result (res/failure mock-error-message)
+        mock-move-email-to-mailbox
+        (fn [_session _email-id _mailbox-id]
+          (swap! call-count inc)
+          (if (= @call-count 1)
+            success-result
+            failure-result))
+        mock-fetch-email (fn [_session _email-id]
+                           (res/success mock-email))
+        mock-download-blobs (fn [_session _email-id]
+                                (res/success mock-blobs))
+        mock-upload-attachments (fn [_session _email-id]
+                                  (res/success {}))
+        mock-create-draft-email (fn [_session _email]
+                                  (res/success 1234))
+        mock-submit-email (fn [_session _email-id _identity_id]
+                            (res/success mock-submitted-email-id))]
+
+    (with-redefs [fm/move-email-to-mailbox mock-move-email-to-mailbox
+                  fm/fetch-email mock-fetch-email
+                  fm/download-blobs mock-download-blobs
+                  fm/upload-attachments mock-upload-attachments
+                  fm/create-draft-email mock-create-draft-email
+                  fm/submit-email mock-submit-email]
+      (let [result (c/process-email config mock-session mock-sender-id mock-mailbox-info mock-email-id)]
+        (t/is (res/failure result))
+        (t/is (= (str "process-email failed Step 8 / " mock-error-message) (:error result)))))))
+
+(t/deftest process-email-move-to-processed-fail
+  (let [config (cfg/load-config)
+        mock-session {}
+        mock-sender-id "sender-id"
+        mock-mailbox-info {}
+        mock-email-id 1234
+        mock-email {:to [{:email "attachify+riwepo@fastmail.com"}]}
+        mock-blobs {}
+        mock-submitted-email-id 5678
+        mock-error-message "move-email-to-mailbox failed / mock error"
+        call-count (atom 0)
+        success-result (res/success mock-email)
+        failure-result (res/failure mock-error-message)
+        mock-move-email-to-mailbox
+        (fn [_session _email-id _mailbox-id]
+          (swap! call-count inc)
+          (if (= @call-count 3)
+            failure-result
+            success-result))
+
+        mock-fetch-email (fn [_session _email-id]
+                           (res/success mock-email))
+        mock-download-blobs (fn [_session _email-id]
+                              (res/success mock-blobs))
+        mock-upload-attachments (fn [_session _email-id]
+                                  (res/success {}))
+        mock-create-draft-email (fn [_session _email]
+                                  (res/success 1234))
+        mock-submit-email (fn [_session _email-id _identity_id]
+                            (res/success mock-submitted-email-id))]
+
+    (with-redefs [fm/move-email-to-mailbox mock-move-email-to-mailbox
+                  fm/fetch-email mock-fetch-email
+                  fm/download-blobs mock-download-blobs
+                  fm/upload-attachments mock-upload-attachments
+                  fm/create-draft-email mock-create-draft-email
+                  fm/submit-email mock-submit-email]
+      (let [result (c/process-email config mock-session mock-sender-id mock-mailbox-info mock-email-id)]
+        (t/is (res/failure result))
+        (t/is (= (str "process-email failed Step 9 / " mock-error-message) (:error result)))))))
+
+(t/deftest process-email-success
+  (let [config (cfg/load-config)
+        mock-session {}
+        mock-sender-id "sender-id"
+        mock-mailbox-info {}
+        mock-email-id 12
+        mock-email {:to [{:email "attachify+riwepo@fastmail.com"}]}
+        mock-blobs {}
+        mock-moved-email-id 34
+        mock-submitted-email-id 56
+        mock-move-email-to-mailbox (fn [_session _email-id _mailbox-id]
+                                     (res/success mock-moved-email-id))
+        mock-fetch-email (fn [_session _email-id]
+                           (res/success mock-email))
+        mock-download-blobs (fn [_session _email-id]
+                              (res/success mock-blobs))
+        mock-upload-attachments (fn [_session _email-id]
+                                  (res/success {}))
+        mock-create-draft-email (fn [_session _email]
+                                  (res/success 1234))
+        mock-submit-email (fn [_session _email-id _identity_id]
+                            (res/success mock-submitted-email-id))]
+
+    (with-redefs [fm/move-email-to-mailbox mock-move-email-to-mailbox
+                  fm/fetch-email mock-fetch-email
+                  fm/download-blobs mock-download-blobs
+                  fm/upload-attachments mock-upload-attachments
+                  fm/create-draft-email mock-create-draft-email
+                  fm/submit-email mock-submit-email]
+      (let [result (c/process-email config mock-session mock-sender-id mock-mailbox-info mock-email-id)]
+        (t/is (res/success result))))))
+
+
+
+
+
 
 
 
