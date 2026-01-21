@@ -35,38 +35,39 @@
               (let [resend-address (build-resend-address config resend-username)
                     blobs-info (fm/get-blobs-info email)
                     download-blobs-result (fm/download-blobs session blobs-info)]
-                (if (failure? download-blobs-result)
-                  (log-and-failure "process-email failed Step 4" (:error download-blobs-result))
-                  (let [blobs (:value download-blobs-result)
-                        upload-attachments-result (fm/upload-attachments session blobs)]
-                    (if (failure? upload-attachments-result)
-                      (log-and-failure "process-email failed Step 5" (:error upload-attachments-result))
-                      (let [attachment-info (:value upload-attachments-result)
-                            from-address (:from-address config)
-                            draft-email-object (fm/build-draft-email
-                                                 blobs
-                                                 attachment-info
-                                                 from-address
-                                                 resend-address
-                                                 (fm/get-mailbox-id-by-role mailbox-info "drafts")
-                                                 (:subject email))
-                            create-draft-result (fm/create-draft-email session draft-email-object)]
-                        (if (failure? create-draft-result)
-                          (log-and-failure "process-email failed Step 6" (:error create-draft-result))
-                          (let [draft-email-id (:value create-draft-result)
-                                submit-result (fm/submit-email session draft-email-id sender-id)]
-                            (if (failure? submit-result)
-                              (log-and-failure "process-email failed Step 7" (:error submit-result))
-                              (let [sent-mailbox-id (fm/get-mailbox-id-by-role mailbox-info "sent")
-                                    move-email-to-sent-result (fm/move-email-to-mailbox session draft-email-id sent-mailbox-id)]
-                                (if (failure? move-email-to-sent-result)
-                                  (log-and-failure "process-email failed Step 8" (:error move-email-to-sent-result))
-                                  (let [processed-mailbox-id (fm/get-mailbox-id-by-name mailbox-info "Processed")
-                                        move-email-to-processed-result (fm/move-email-to-mailbox session email-id processed-mailbox-id)]
-                                    (if (failure? move-email-to-processed-result)
-                                      (log-and-failure "process-email failed Step 9" (:error move-email-to-processed-result))
-                                      ;; All steps succeeded
-                                      (log-and-success nil "email successfully processed"))))))))))))))))))))
+                (failure? download-blobs-result)
+                (log-and-failure "process-email failed Step 4" (:error download-blobs-result))
+                (let [blobs (:value download-blobs-result)
+                      attachment-blobs (filter #(= (:role %) :attachment) blobs)
+                      upload-attachments-result (fm/upload-attachments session attachment-blobs)]
+                  (if (failure? upload-attachments-result)
+                    (log-and-failure "process-email failed Step 5" (:error upload-attachments-result))
+                    (let [attachment-info (:value upload-attachments-result)
+                          from-address (:from-address config)
+                          draft-email-object (fm/build-draft-email
+                                               blobs
+                                               attachment-info
+                                               from-address
+                                               resend-address
+                                               (fm/get-mailbox-id-by-role mailbox-info "drafts")
+                                               (:subject email))
+                          create-draft-result (fm/create-draft-email session draft-email-object)]
+                      (if (failure? create-draft-result)
+                        (log-and-failure "process-email failed Step 6" (:error create-draft-result))
+                        (let [draft-email-id (:value create-draft-result)
+                              submit-result (fm/submit-email session draft-email-id sender-id)]
+                          (if (failure? submit-result)
+                            (log-and-failure "process-email failed Step 7" (:error submit-result))
+                            (let [sent-mailbox-id (fm/get-mailbox-id-by-role mailbox-info "sent")
+                                  move-email-to-sent-result (fm/move-email-to-mailbox session draft-email-id sent-mailbox-id)]
+                              (if (failure? move-email-to-sent-result)
+                                (log-and-failure "process-email failed Step 8" (:error move-email-to-sent-result))
+                                (let [processed-mailbox-id (fm/get-mailbox-id-by-name mailbox-info "Processed")
+                                      move-email-to-processed-result (fm/move-email-to-mailbox session email-id processed-mailbox-id)]
+                                  (if (failure? move-email-to-processed-result)
+                                    (log-and-failure "process-email failed Step 9" (:error move-email-to-processed-result))
+                                    ;; All steps succeeded
+                                    (log-and-success nil "email successfully processed")))))))))))))))))))
 
 
 
@@ -81,8 +82,7 @@
             identity-info-result (fm/fetch-identity-info session)]
         (if (failure? identity-info-result)
           (log-and-failure "process-emails failed Step 2" (:error identity-info-result))
-          (let [identity-info (:value identity-info-result)
-                sender-id (fm/get-identity-id identity-info)
+          (let [sender-id (:value identity-info-result)
                 mailbox-info-result (fm/fetch-mailbox-info session)]
             (if (failure? mailbox-info-result)
               (log-and-failure "process-emails failed Step 3" (:error mailbox-info-result))
@@ -124,8 +124,23 @@
   (pprint inbox-id)
   (def email-ids (:value (fm/fetch-email-ids session inbox-id)))
   (pprint email-ids)
-  (def email (:value (fm/fetch-email session (first email-ids))))
+  (def email-id (first email-ids))
+  (def email (:value (fm/fetch-email session email-id)))
   (pprint email)
+  (def blobs-info (fm/get-blobs-info email))
+  (pprint blobs-info)
+  (def blob-info (first blobs-info))
+  (pprint blob-info)
+  (def download-blob-result (fm/download-blob session blob-info "fred.txt"))
+  (pprint download-blob-result)
+  (def download-blobs-result (fm/download-blobs session blobs-info))
+  (pprint download-blobs-result)
+  (def sender-id (:value (fm/fetch-identity-info session)))
+  (pprint sender-id)
+  (process-email config session sender-id mailbox-info email-id)
+
+
+
   (get-in email [:to 0 :email])
   (def test-email {:to [{:email "attachify+riwepo.work@fastmail.com"}]})
   (def to-address (fm/get-to-address test-email))
@@ -136,5 +151,7 @@
   (def process-emails-result (process-emails))
   (pprint process-emails-result)
   nil)
+
+
 
 
