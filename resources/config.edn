@@ -1,0 +1,7 @@
+{:email-hostname "api.fastmail.com"
+ :email-api-token "fmu1-5c164056-5db4226acdc2c14ad1008fecc8082146-0-63118a547fec2b239a083d31bb977231"
+ :email-auth-url "https://{hostname}/.well-known/jmap"
+ :from-address "attachify@fastmail.com"
+ :to-address "riwepo.work@gmail.com"
+ :resend-domain "gmail.com"}
+
