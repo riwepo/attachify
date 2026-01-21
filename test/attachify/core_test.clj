@@ -86,7 +86,8 @@
         mock-sender-id "sender-id"
         mock-mailbox-info {}
         mock-email-id {}
-        mock-email {:to [{:email "attachify+riwepo@fastmail.com"}]}
+        mock-email {:to [{:email "attachify+riwepo@fastmail.com"}]
+                    :attachments [{:name "fred" :blobId 1234 :type "image/jpg"}]}
         mock-error-message "download-blobs failed / mock error"
         mock-move-email-to-mailbox (fn [_session _email-id _mailbox-id]
                                      (res/success {:created 1234}))
