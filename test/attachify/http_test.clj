@@ -53,7 +53,7 @@
     (with-redefs [http/post mock-post]
       (let [result (post2 bad-url token content content-type)]
         (t/is (failure? result))
-        (t/is (= "post2 failed 404 some-dodgy-url" (:error result)))))))
+        (t/is (= "post2 failed / 404 / some-dodgy-url" (:error result)))))))
 
 (def api-url "https://api.fastmail.com/jmap/api/")
 
@@ -68,7 +68,7 @@
     (with-redefs [http/post mock-post]
       (let [result (post2 url token content content-type)]
         (t/is (failure? result))
-        (t/is (= (str "post2 failed 401 " api-url) (:error result)))))))
+        (t/is (= (str "post2 failed / 401 / " api-url) (:error result)))))))
 
 (t/deftest post2-bad-request
   (let [config (load-config)
@@ -82,7 +82,7 @@
     (with-redefs [http/post mock-post]
       (let [result (post2 url token content content-type)]
         (t/is (failure? result))
-        (t/is (= (str "post2 failed 400 " api-url) (:error result)))))))
+        (t/is (= (str "post2 failed / 400 / " api-url) (:error result)))))))
 
 (t/deftest post2-success
   (let [config (load-config)
