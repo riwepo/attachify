@@ -33,11 +33,11 @@
         error-response (first (filter #(= "error" (first %)) method-responses))]
     (if error-response
       (let [{:keys [arguments type]} (second error-response)]
-        (log-and-failure (str "post response failed with API error: type " type ", arguments: " arguments)))
+        (log-and-failure "post response indicated failure" (str "API error: type " type ", arguments: " arguments)))
       (let [result (extractor method-responses)]
         (if result
-          (log-and-success result "post response succeeded")
-          (log-and-failure "post response failed with unknown error"))))))
+          (log-and-success result "post response indicated success")
+          (log-and-failure "post response indicated failure" "unknown error"))))))
 
 (defn extract-identity-info [method-responses]
   (let [identity-get-response (first (filter #(= "Identity/get" (first %)) method-responses))

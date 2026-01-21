@@ -29,7 +29,7 @@
   (let [config (cfg/load-config)
         mock-recipient "recipient"
         result (c/build-resend-address config mock-recipient)]
-    (t/is (= "recipient@hotmail.com" result))))
+    (t/is (= "recipient@gmail.com" result))))
 
 (t/deftest process-email-move-to-processing-fail
   (let [config (cfg/load-config)

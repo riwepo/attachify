@@ -56,7 +56,7 @@
     (with-redefs [http/post2 mock-post2]
       (let [result (fm/fetch-identity-info mock-session)]
         (t/is (res/failure? result))
-        (t/is (= "fetch-identity-info failed / post response failed with API error: type the type, arguments: the arguments" (:error result)))))))
+        (t/is (= "fetch-identity-info failed / post response indicated failure / API error: type the type, arguments: the arguments" (:error result)))))))
 
 (t/deftest fetch-identity-info-unknown-fail
   (let [mock-session {:apiUrl "url" :apiToken "token"}
@@ -65,7 +65,7 @@
     (with-redefs [http/post2 mock-post2]
       (let [result (fm/fetch-identity-info mock-session)]
         (t/is (res/failure? result))
-        (t/is (= "fetch-identity-info failed / post response failed with unknown error" (:error result)))))))
+        (t/is (= "fetch-identity-info failed / post response indicated failure / unknown error" (:error result)))))))
 
 (t/deftest fetch-identity-info-success
   (let [mock-session {:apiUrl "url" :apiToken "token"}
@@ -98,7 +98,7 @@
     (with-redefs [http/post2 mock-post2]
       (let [result (fm/fetch-mailbox-info mock-session)]
         (t/is (res/failure? result))
-        (t/is (= "fetch-mailbox-info failed / post response failed with API error: type the type, arguments: the arguments" (:error result)))))))
+        (t/is (= "fetch-mailbox-info failed / post response indicated failure / API error: type the type, arguments: the arguments" (:error result)))))))
 
 (t/deftest fetch-mailbox-info-unknown-fail
   (let [mock-session {:apiUrl "url" :apiToken "token"}
@@ -107,7 +107,7 @@
     (with-redefs [http/post2 mock-post2]
       (let [result (fm/fetch-mailbox-info mock-session)]
         (t/is (res/failure? result))
-        (t/is (= "fetch-mailbox-info failed / post response failed with unknown error" (:error result)))))))
+        (t/is (= "fetch-mailbox-info failed / post response indicated failure / unknown error" (:error result)))))))
 
 
 (t/deftest fetch-mailbox-info-success
@@ -143,7 +143,7 @@
     (with-redefs [http/post2 mock-post2]
       (let [result (fm/fetch-email-ids mock-session mock-mailbox-id)]
         (t/is (res/failure? result))
-        (t/is (= "fetch-email-ids failed / post response failed with API error: type the type, arguments: the arguments" (:error result)))))))
+        (t/is (= "fetch-email-ids failed / post response indicated failure / API error: type the type, arguments: the arguments" (:error result)))))))
 
 (t/deftest fetch-email-ids-unknown-fail
   (let [mock-mailbox-id "P-Y"
@@ -153,7 +153,7 @@
     (with-redefs [http/post2 mock-post2]
       (let [result (fm/fetch-email-ids mock-session mock-mailbox-id)]
         (t/is (res/failure? result))
-        (t/is (= "fetch-email-ids failed / post response failed with unknown error" (:error result)))))))
+        (t/is (= "fetch-email-ids failed / post response indicated failure / unknown error" (:error result)))))))
 
 
 (t/deftest fetch-email-ids-success
@@ -190,7 +190,7 @@
     (with-redefs [http/post2 mock-post2]
       (let [result (fm/fetch-email mock-session mock-email-id)]
         (t/is (res/failure? result))
-        (t/is (=  "fetch-email failed / post response failed with API error: type the type, arguments: the arguments" (:error result)))))))
+        (t/is (=  "fetch-email failed / post response indicated failure / API error: type the type, arguments: the arguments" (:error result)))))))
 
 (t/deftest fetch-email-unknown-fail
   (let [mock-email-id "email-id"
@@ -200,7 +200,7 @@
     (with-redefs [http/post2 mock-post2]
       (let [result (fm/fetch-email mock-session mock-email-id)]
         (t/is (res/failure? result))
-        (t/is (=  "fetch-email failed / post response failed with unknown error" (:error result)))))))
+        (t/is (=  "fetch-email failed / post response indicated failure / unknown error" (:error result)))))))
 
 (t/deftest fetch-email-success
   (let [mock-session {:apiUrl "url" :apiToken "token"}
@@ -238,7 +238,7 @@
     (with-redefs [http/post2 mock-post2]
       (let [result (fm/move-email-to-mailbox mock-session mock-email-id mock-mailbox-id)]
         (t/is (res/failure? result))
-        (t/is (= "move-email-to-mailbox failed / post response failed with API error: type the type, arguments: the arguments" (:error result)))))))
+        (t/is (= "move-email-to-mailbox failed / post response indicated failure / API error: type the type, arguments: the arguments" (:error result)))))))
 
 (t/deftest move-email-to-mailbox-unknown-fail
   (let [mock-email-id "email-id"
@@ -249,7 +249,7 @@
     (with-redefs [http/post2 mock-post2]
       (let [result (fm/move-email-to-mailbox mock-session mock-email-id mock-mailbox-id)]
         (t/is (res/failure? result))
-        (t/is (= "move-email-to-mailbox failed / post response failed with unknown error" (:error result)))))))
+        (t/is (= "move-email-to-mailbox failed / post response indicated failure / unknown error" (:error result)))))))
 
 (t/deftest move-email-to-mailbox-success
   (let [mock-email-id "email-id"
@@ -465,7 +465,7 @@
     (with-redefs [http/post2 mock-post2]
       (let [result (fm/create-draft-email mock-session mock-email)]
         (t/is (res/failure? result))
-        (t/is (= "create-draft-email failed / post response failed with API error: type the type, arguments: the arguments" (:error result)))))))
+        (t/is (= "create-draft-email failed / post response indicated failure / API error: type the type, arguments: the arguments" (:error result)))))))
 
 (t/deftest create-draft-email-unknown-fail
   (let [mock-session {:apiUrl   "url"
@@ -476,7 +476,7 @@
     (with-redefs [http/post2 mock-post2]
       (let [result (fm/create-draft-email mock-session mock-email)]
         (t/is (res/failure? result))
-        (t/is (= "create-draft-email failed / post response failed with unknown error" (:error result)))))))
+        (t/is (= "create-draft-email failed / post response indicated failure / unknown error" (:error result)))))))
 
 (t/deftest create-draft-email-success
   (let [mock-session {:apiUrl   "url"
@@ -559,7 +559,7 @@
     (with-redefs [http/post2 mock-post2]
       (let [result (fm/submit-email mock-session mock-submitted-email-id mock-identity-id)]
         (t/is (res/failure? result))
-        (t/is (= "submit-email failed / post response failed with API error: type the type, arguments: the arguments" (:error result)))))))
+        (t/is (= "submit-email failed / post response indicated failure / API error: type the type, arguments: the arguments" (:error result)))))))
 
 (t/deftest submit-email-unexpected-error-fail
   (let [mock-session {:apiUrl          "url"
@@ -572,7 +572,7 @@
     (with-redefs [http/post2 mock-post2]
       (let [result (fm/submit-email mock-session mock-submitted-email-id mock-identity-id)]
         (t/is (res/failure? result))
-        (t/is (= "submit-email failed / post response failed with unknown error" (:error result)))))))
+        (t/is (= "submit-email failed / post response indicated failure / unknown error" (:error result)))))))
 
 (t/deftest submit-email-success
   (let [mock-session {:apiUrl   "url"
