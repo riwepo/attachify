@@ -6,12 +6,15 @@
 
 (tel/set-min-level! :debug)
 
-(defn log-and-failure [& msgs]
+(defn log-and-failure
+  ;; pass any number of strings as messages
+  [& msgs]
   (let [result (apply failure msgs)]
     (tel/log! {:level :error, :data result})
     result))
 
 (defn log-and-success
+  ;; pass a value followed by any number of strings as messages
   [value & msgs]
   (let [combined-message (str/join " " msgs)
         result (success value)]
