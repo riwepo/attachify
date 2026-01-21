@@ -11,7 +11,7 @@
             status (:status response)]
         (if (= status 200)
           (do
-            (log-and-success "get2 succeeded")
+            (log-and-success nil "get2 succeeded")
             (success (:body response)))
           (log-and-failure "get2 failed" url status)))
       (catch Exception e
@@ -30,7 +30,7 @@
             status (:status response)]
         (if (= status 200)
           (do
-            (log-and-success "post2 succeeded")
+            (log-and-success nil "post2 succeeded")
             (success (:body response)))
           (log-and-failure "post2 failed" status url)))
       (catch Exception e
