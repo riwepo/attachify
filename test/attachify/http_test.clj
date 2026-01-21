@@ -15,7 +15,7 @@
     (with-redefs [http/get mock-get]
       (let [result (get2 bad-url token)]
         (t/is (failure? result))
-        (t/is (= "get2 failed some-dodgy-url 404" (:error result)))))))
+        (t/is (= "get2 failed / some-dodgy-url / 404" (:error result)))))))
 
 (t/deftest get2-fail-bad-token
   (let [config (load-config)
@@ -27,7 +27,7 @@
     (with-redefs [http/get mock-get]
       (let [result (get2 url token)]
         (t/is (failure? result))
-        (t/is (= "get2 failed https://api.fastmail.com/.well-known/jmap 401" (:error result)))))))
+        (t/is (= "get2 failed / https://api.fastmail.com/.well-known/jmap / 401" (:error result)))))))
 
 (t/deftest get2-success
   (let [config (load-config)
