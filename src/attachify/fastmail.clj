@@ -1,6 +1,6 @@
 (ns attachify.fastmail
   (:require [clojure.string :as str]
-            [clojure.pprint :refer [pprint]]
+            ;;[clojure.pprint :refer [pprint]]
             [cheshire.core :as json]
             [taoensso.telemere :as tel]
             [attachify.result :refer [success success?]]
