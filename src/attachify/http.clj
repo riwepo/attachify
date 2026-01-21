@@ -5,10 +5,9 @@
             [attachify.result-log :refer [log-and-success log-and-failure]]))
 
 (defn get2 [url api-token]
-  (let [headers {"Authorization" (str "Bearer " api-token)
-                 "Content-Type"  "application/json; charset=utf-8"}]
+  (let [headers {"Authorization" (str "Bearer " api-token)}]
     (try
-      (let [response (http/get url {:headers headers :as :json})
+      (let [response (http/get url {:headers headers :as :auto})
             status (:status response)]
         (if (= status 200)
           (do
