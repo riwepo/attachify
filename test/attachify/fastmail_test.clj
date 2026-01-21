@@ -577,15 +577,15 @@
 (t/deftest submit-email-success
   (let [mock-session {:apiUrl   "url"
                       :apiToken "token"}
-        mock-submitted-email-id 666
+        mock-submission-id 666
         mock-identity-id "identity"
-        mock-response-body {:methodResponses [["EmailSubmission/set" {:created {:id mock-submitted-email-id}}]]}
+        mock-response-body {:methodResponses [["EmailSubmission/set" {:created {:submission_id mock-submission-id}}]]}
         mock-post2 (fn [_url _api-token _content _content_type]
                      (res/success mock-response-body))]
     (with-redefs [http/post2 mock-post2]
-      (let [result (fm/submit-email mock-session mock-submitted-email-id mock-identity-id)]
+      (let [result (fm/submit-email mock-session mock-submission-id mock-identity-id)]
         (t/is (res/success? result))
-        (t/is (= mock-submitted-email-id (:value result)))))))
+        (t/is (= mock-submission-id (:value result)))))))
 
 
 
