@@ -101,7 +101,7 @@
                         (loop [ids all-email-ids
                                success-count 0]
                           (if (empty? ids)
-                            (log-and-success "process-emails succeeded")
+                            (log-and-success nil "process-emails succeeded")
                             (let [email-id (first ids)
                                   process-email-result (process-email config session sender-id mailbox-info email-id)]
                               (if (failure? process-email-result)
