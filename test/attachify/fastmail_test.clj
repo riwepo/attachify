@@ -206,7 +206,7 @@
   (let [mock-session {:apiUrl "url" :apiToken "token"}
         mock-email-id "email-id"
         mock-email {:to "fred" :from "nerk"}
-        mock-response-body {:methodResponses [["Email/query" {:list [mock-email]}]]}
+        mock-response-body {:methodResponses [["Email/get" {:list [mock-email]}]]}
         mock-post2 (fn [_url _api-token _request_body _content_type]
                      (res/success mock-response-body))]
     (with-redefs [http/post2 mock-post2]
