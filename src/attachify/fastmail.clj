@@ -28,10 +28,6 @@
 (defn get-account-id [session]
   (get-in session [:primaryAccounts :urn:ietf:params:jmap:mail]))
 
-(defn get-identity-id
-  [identity-info]
-  (get-in identity-info [0 :id]))
-
 (defn process-response [extractor response-body]
   (let [method-responses (:methodResponses response-body)
         error-response (first (filter #(= "error" (first %)) method-responses))]
@@ -46,7 +42,7 @@
 (defn extract-identity-info [method-responses]
   (let [identity-get-response (first (filter #(= "Identity/get" (first %)) method-responses))
         identity-info (get-in identity-get-response [1 :list])
-        result (get-identity-id identity-info)]
+        result (get-in identity-info [0 :id])]
     result))
 
 (defn fetch-identity-info
@@ -134,7 +130,7 @@
       (log-and-failure "fetch-email-ids failed" (:error post-result)))))
 
 (defn extract-email [method-responses]
-  (let [email-get-response (first (filter #(= "Email/query" (first %)) method-responses))
+  (let [email-get-response (first (filter #(= "Email/get" (first %)) method-responses))
         emails (:list (second email-get-response))
         result (first emails)]
     result))
@@ -167,7 +163,9 @@
    "image/png"       ".png"
    "image/gif"       ".gif"
    "image/svg+xml"   ".svg"
-   "application/pdf" ".pdf"})
+   "application/pdf" ".pdf"
+   "text/plain"      ".txt"
+   "text/html"       ".html"})
 
 
 (defn add-extension-if-missing
@@ -177,10 +175,9 @@
     filename
     (str filename ext)))
 
-(defn extract-created [method-responses]
+(defn extract-updated [method-responses]
   (let [email-set-response (first (filter #(= "Email/set" (first %)) method-responses))
-        created (get-in email-set-response [1 :created])
-        result (first created)]
+        result (get-in email-set-response [1 :updated])]
     result))
 
 (defn move-email-to-mailbox
@@ -196,7 +193,7 @@
         encoded-request-body (json/encode request-body)
         post-result (http2/post2 url api-token encoded-request-body "application/json; charset=utf-8")]
     (if (success? post-result)
-      (let [process-response-result (process-response extract-created (:value post-result))]
+      (let [process-response-result (process-response extract-updated (:value post-result))]
         (if (success? process-response-result)
           (log-and-success (:value process-response-result) "move-email-to-mailbox succeeded")
           (log-and-failure "move-email-to-mailbox failed" (:error process-response-result))))
@@ -238,8 +235,7 @@
 
 (defn decode-blob-content [blob-info bytes]
   (let [decoded-content (if (and (:type blob-info)
-                                 (or (str/starts-with? (:type blob-info) "text/")
-                                     (= (:type blob-info) "application/json")
+                                 (or (= (:type blob-info) "application/json")
                                      (= (:type blob-info) "application/xml")))
                           ;; decode text-like content as string
                           (-> (bytes->string bytes :charset "UTF-8")
@@ -370,7 +366,7 @@
         request-body {:using       ["urn:ietf:params:jmap:core" "urn:ietf:params:jmap:mail"]
                       :methodCalls method-calls}
         request-body-encoded (json/encode request-body)
-        post-result (http2/post2 (:apiUrl session) (:api-token session) request-body-encoded "application/json; charset=utf-8")]
+        post-result (http2/post2 (:apiUrl session) (:apiToken session) request-body-encoded "application/json; charset=utf-8")]
     (if (success? post-result)
       (let [process-response-result (process-response extract-draft-id (:value post-result))]
         (if (success? process-response-result)
@@ -400,7 +396,7 @@
 (defn extract-submitted-id [method-responses]
   (let [email-set-response (first (filter #(= "EmailSubmission/set" (first %)) method-responses))
         created (get-in email-set-response [1 :created])
-        result (:id created)]
+        result (:submission_id created)]
     result))
 
 (defn submit-email
@@ -417,7 +413,7 @@
         encoded-request-body (json/encode request-body)
         post-result (http2/post2
                       (:apiUrl session)
-                      (:api-token session)
+                      (:apiToken session)
                       encoded-request-body
                       "application/json; charset=utf-8")]
     (if (success? post-result)
