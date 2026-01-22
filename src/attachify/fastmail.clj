@@ -1,6 +1,6 @@
 (ns attachify.fastmail
-  (:require [clojure.string :as str]
-            ;;[clojure.pprint :refer [pprint]]
+  (:require [clojure.pprint :refer [pprint]]
+            [clojure.string :as str]
             [cheshire.core :as json]
             [taoensso.telemere :as tel]
             [attachify.result :refer [success success?]]
@@ -10,6 +10,7 @@
   (:import [java.net URLEncoder]
            [java.nio.charset Charset StandardCharsets]))
 
+
 (defn url-encode [data]
   (^[String Charset] URLEncoder/encode data StandardCharsets/UTF_8))
 
@@ -17,7 +18,7 @@
   [config]
   (let [auth-url (get-email-auth-url config)
         api-token (:email-api-token config)
-        get-result (http2/get2 auth-url api-token)]
+        get-result (http2/get2 auth-url api-token :json)]
     (if (success? get-result)
       (let [session (:value get-result)]
         (if (map? session)
@@ -84,12 +85,12 @@
                         "a"]]}
         encoded-request-body (json/encode request-body)
         post-result (http2/post2 url api-token encoded-request-body "application/json; charset=utf-8")]
-      (if (success? post-result)
-        (let [process-response-result (process-response extract-mailbox-info (:value post-result))]
-          (if (success? process-response-result)
-            (log-and-success (:value process-response-result) "fetch-mailbox-info succeeded")
-            (log-and-failure "fetch-mailbox-info failed" (:error process-response-result))))
-        (log-and-failure "fetch-mailbox-info failed" (:error post-result)))))
+    (if (success? post-result)
+      (let [process-response-result (process-response extract-mailbox-info (:value post-result))]
+        (if (success? process-response-result)
+          (log-and-success (:value process-response-result) "fetch-mailbox-info succeeded")
+          (log-and-failure "fetch-mailbox-info failed" (:error process-response-result))))
+      (log-and-failure "fetch-mailbox-info failed" (:error post-result)))))
 
 (defn get-mailbox-id-by-name
   [mailbox-info mailbox-name]
@@ -148,11 +149,11 @@
         encoded-request-body (json/encode request-body)
         post-result (http2/post2 url api-token encoded-request-body "application/json; charset=utf-8")]
     (if (success? post-result)
-       (let [process-response-result (process-response extract-email (:value post-result))]
-         (if (success? process-response-result)
-           (log-and-success (:value process-response-result) "fetch-email succeeded")
-           (log-and-failure "fetch-email failed" (:error process-response-result))))
-       (log-and-failure "fetch-email failed" (:error post-result)))))
+      (let [process-response-result (process-response extract-email (:value post-result))]
+        (if (success? process-response-result)
+          (log-and-success (:value process-response-result) "fetch-email succeeded")
+          (log-and-failure "fetch-email failed" (:error process-response-result))))
+      (log-and-failure "fetch-email failed" (:error post-result)))))
 
 
 (defn get-to-address [email]
@@ -233,16 +234,26 @@
         (log-and-success download-url "create-download-url succeeded"))
       (log-and-failure "create-download-url failed" (:error get-file-extension-result)))))
 
-(defn decode-blob-content [blob-info bytes]
-  (let [decoded-content (if (and (:type blob-info)
-                                 (or (= (:type blob-info) "application/json")
-                                     (= (:type blob-info) "application/xml")))
-                          ;; decode text-like content as string
-                          (-> (bytes->string bytes :charset "UTF-8")
-                              replace-nbsp)
-                          ;; else keep raw bytes (e.g. images, pdfs)
-                          bytes)]
-    decoded-content))
+(def text-types #{"text/plain" "application/json" "application/xml" "text/html"})
+(def image-types #{"image/jpeg" "image/png" "image/gif" "image/svg+xml"})
+
+(defn decode-blob-content [blob-info data]
+  (let [mime-type (:type blob-info)]
+    (cond
+      ;; Text types: decode bytes to string and replace non-breaking spaces
+      (and (contains? text-types mime-type)
+           (bytes? data))
+      (-> (bytes->string data :charset "UTF-8")
+          replace-nbsp)
+
+      ;; Image types: data is already bytes, so just return as is
+      (and (contains? image-types mime-type)
+           (bytes? data))
+      data
+
+      ;; Default: return data as is (usually bytes)
+      :else
+      data)))
 
 (defn download-blob
   [session blob-info filename]
@@ -250,7 +261,8 @@
     (if (success? create-download-url-result)
       (let [api-token (:apiToken session)
             download-url (:value create-download-url-result)
-            get-result (http2/get2 download-url api-token)]
+            ;; download all blobs as byte-array and handle decoding our end
+            get-result (http2/get2 download-url api-token :byte-array)]
         (if (success? get-result)
           (let [bytes (:value get-result)
                 decoded-content (decode-blob-content blob-info bytes)]
