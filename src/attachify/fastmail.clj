@@ -254,7 +254,9 @@
         (if (success? get-result)
           (let [bytes (:value get-result)
                 decoded-content (decode-blob-content blob-info bytes)]
-            (log-and-success decoded-content "download-blob succeeded"))
+            ;; don't log the blob, it could be large
+            (log-and-success nil "download-blob succeeded")
+            (success decoded-content))
           (log-and-failure "download-blob failed" (:error get-result))))
       (log-and-failure "download-blob failed" (:error create-download-url-result)))))
 
@@ -288,7 +290,7 @@
   [session blob]
   (let [upload-url (get-upload-url session)
         api-token (:apiToken session)
-        post-result (http2/post2 upload-url api-token blob (:type blob))]
+        post-result (http2/post2 upload-url api-token (:value blob) (:type blob))]
     (if (success? post-result)
       (let [body (:value post-result)]
         (if (contains? body :blobId)
