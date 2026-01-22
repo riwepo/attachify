@@ -13,7 +13,7 @@
                    {:status 404
                     :body "Not Found"})]
     (with-redefs [http/get mock-get]
-      (let [result (get2 bad-url token)]
+      (let [result (get2 bad-url token :text)]
         (t/is (failure? result))
         (t/is (= "get2 failed / some-dodgy-url / 404" (:error result)))))))
 
@@ -25,7 +25,7 @@
                    {:status 401
                     :body "Not Authorized"})]
     (with-redefs [http/get mock-get]
-      (let [result (get2 url token)]
+      (let [result (get2 url token :text)]
         (t/is (failure? result))
         (t/is (= "get2 failed / https://api.fastmail.com/.well-known/jmap / 401" (:error result)))))))
 
@@ -37,7 +37,7 @@
                    {:status 200
                     :body "the body"})]
     (with-redefs [http/get mock-get]
-      (let [result (get2 url token)]
+      (let [result (get2 url token :text)]
         (t/is (success? result))
         (t/is (= "the body" (:value result)))))))
 

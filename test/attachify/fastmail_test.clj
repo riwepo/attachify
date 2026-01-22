@@ -8,7 +8,7 @@
 (t/deftest fetch-session-get2-fail
   (let [error-message "get2 failed"
         config (cfg/load-config)
-        mock-get2 (fn [_url _api-token]
+        mock-get2 (fn [_url _api-token _data-type]
                     (res/failure error-message))]
     (with-redefs [http/get2 mock-get2]
       (let [result (fm/fetch-session config)]
@@ -18,7 +18,7 @@
 (t/deftest fetch-session-format-fail
   (let [error-message "Invalid session format"
         config (cfg/load-config)
-        mock-get2 (fn [_url _api-token]
+        mock-get2 (fn [_url _api-token _data-type]
                     (res/success "some dodgy value"))]
     (with-redefs [http/get2 mock-get2]
       (let [result (fm/fetch-session config)]
@@ -29,7 +29,7 @@
   (let [
         config (cfg/load-config)
         mock-session {:apiToken (:email-api-token config)}
-        mock-get2 (fn [_url _api-token]
+        mock-get2 (fn [_url _api-token _data-type]
                     (res/success mock-session))]
     (with-redefs [http/get2 mock-get2]
       (let [result (fm/fetch-session config)]
@@ -315,7 +315,7 @@
                       :downloadUrl     "{accountId}/{blobId}/{name}/{type}"}
         mock-blob-info {:blobId "blobId" :type "image/jpeg"}
         mock-filename "filename"
-        mock-get2 (fn [_url _api-token]
+        mock-get2 (fn [_url _api-token _data_type]
                     (res/failure error-message))]
     (with-redefs [http/get2 mock-get2]
       (let [result (fm/download-blob mock-session mock-blob-info mock-filename)]
@@ -329,7 +329,7 @@
         mock-blob-content "mock blob content"
         mock-create-download-url (fn [_session _blob-info _filename]
                                    (res/success "download-url"))
-        mock-get2 (fn [_url _api-token]
+        mock-get2 (fn [_url _api-token _data-type]
                     (res/success mock-blob-content))]
     (with-redefs [fm/create-download-url mock-create-download-url http/get2 mock-get2]
       (let [result (fm/download-blob mock-session mock-blob-info mock-filename)]
